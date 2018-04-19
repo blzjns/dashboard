@@ -67,7 +67,10 @@ limitations under the License.
           </v-list>
         </v-menu>
       </v-toolbar>
-      <v-alert type="info" :value="!projectScope && showOnlyShootsWithIssues" outline>Currently only showing Clusters with Issues</v-alert>
+      <v-alert type="info" :value="!projectScope && showOnlyShootsWithIssues" outline class="issueAlert">
+        <div class="issueText">Currently only showing Clusters with Issues</div>
+        <v-btn v-if="listHasStaleClusters" small round right color="info" @click="clearStaleShoots">Clear Healthy Clusters</v-btn>
+      </v-alert>
       <v-data-table class="shootListTable" :headers="visibleHeaders" :items="items" :search="search" :pagination.sync="pagination" :total-items="items.length" hide-actions must-sort :loading="shootsLoading">
         <template slot="items" slot-scope="props">
           <shoot-list-row :shootItem="props.item" :visibleHeaders="visibleHeaders" v-on:showDialog="showDialog"></shoot-list-row>
@@ -187,7 +190,8 @@ limitations under the License.
         'deleteShoot',
         'setSelectedShoot',
         'setShootSortPrams',
-        'setOnlyShootsWithIssues'
+        'setOnlyShootsWithIssues',
+        'clearStaleShoots'
       ]),
       deletionConfirmed () {
         this.deleteShoot({name: this.currentName, namespace: this.currentNamespace})
@@ -329,6 +333,13 @@ limitations under the License.
         set (value) {
           this.setOnlyShootsWithIssues(value)
         }
+      },
+      listHasStaleClusters () {
+        if (!this.onlyShootsWithIssues) {
+          return false
+        } else {
+          return !!find(this.items, item => get(item, 'dashboardData.stale') === true)
+        }
       }
     },
     mounted () {
@@ -371,5 +382,20 @@ limitations under the License.
         padding-right: 24px;
       }
     }
+  }
+
+  .issueAlert {
+    padding: 8px 0px 8px 8px;
+  }
+
+  .issueAlert .issueText {
+    float: left;
+    height: 40px;
+    display: flex;
+    align-items: center;
+  }
+
+  .issueAlert >>> button {
+    float: right;
   }
 </style>

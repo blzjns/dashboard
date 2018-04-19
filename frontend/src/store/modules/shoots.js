@@ -76,6 +76,10 @@ const actions = {
     commit('CLEAR_ALL')
     return getters.items
   },
+  clearStale ({ commit, dispatch }) {
+    commit('CLEAR_STALE')
+    return getters.items
+  },
   get ({ dispatch, commit, rootState }, {name, namespace}) {
     const user = rootState.user
     return getShoot({namespace, name, user})
@@ -134,6 +138,10 @@ const actions = {
       .catch(error => {
         // shoot info not found -> ignore if KubernetesError
         if (isNotFound(error)) {
+          const item = findItem({namespace, name})
+          if (item !== undefined) {
+            Vue.set(item, 'dashboardData.notFound', true)
+          }
           return
         }
         throw error
@@ -250,7 +258,7 @@ const setSortedItems = (state) => {
   const sortBy = get(state, 'sortParams.sortBy')
   const descending = get(state, 'sortParams.descending', false) ? 'desc' : 'asc'
   if (sortBy) {
-    state.sortedShoots = orderBy(shoots(state), [item => getSortVal(item, sortBy), 'metadata.name'], [descending, 'asc'])
+    state.sortedShoots = orderBy(shoots(state), ['dashboardData.stale', item => getSortVal(item, sortBy), 'metadata.name'], ['desc', descending, 'asc'])
   } else {
     state.sortedShoots = shoots(state)
   }
@@ -260,22 +268,31 @@ const putItem = (state, newItem) => {
   const item = findItem(newItem.metadata)
   if (item !== undefined) {
     if (item.metadata.resourceVersion !== newItem.metadata.resourceVersion) {
-      const sortBy = get(state, 'sortParams.sortBy')
-      let sortRequired = true
-      if (sortBy === 'name' || sortBy === 'infrastructure' || sortBy === 'project' || sortBy === 'createdAt' || sortBy === 'createdBy') {
-        sortRequired = false // these values cannot change
-      } else if (sortBy !== 'lastOperation') { // don't check in this case as most put events will be lastOperation anyway
-        const changes = difference(item, newItem)
+      // eslint-disable-next-line lodash/path-style
+      if (!get(item, 'dashboardData.stale') || !!get(newItem, ['metadata', 'labels', 'shoot.garden.sapcloud.io/unhealthy'])) {
+        // do not update stale shoots, except stale shoot became unhealthy again, in this case the stale flag will be removed
         const sortBy = get(state, 'sortParams.sortBy')
-        if (!getRawSortVal(changes, sortBy)) {
-          sortRequired = false
+        let sortRequired = true
+        if (sortBy === 'name' || sortBy === 'infrastructure' || sortBy === 'project' || sortBy === 'createdAt' || sortBy === 'createdBy') {
+          sortRequired = false // these values cannot change
+        } else if (sortBy !== 'lastOperation') { // don't check in this case as most put events will be lastOperation anyway
+          const changes = difference(item, newItem)
+          const sortBy = get(state, 'sortParams.sortBy')
+          if (!getRawSortVal(changes, sortBy)) {
+            sortRequired = false
+          }
         }
+        if (get(item, 'dashboard.stale') === true) {
+          // shoot previously had an error, recovered and now became unhealthy again
+          Vue.set(item, 'dashboardData.stale', false)
+          sortRequired = true
+        }
+
+        Vue.set(state.shoots, keyForShoot(item.metadata), assign(item, newItem))
+        return sortRequired
       }
-      Vue.set(state.shoots, keyForShoot(item.metadata), assign(item, newItem))
-      return sortRequired
     }
   } else {
-    newItem.info = undefined // register property to ensure reactivity
     Vue.set(state.shoots, keyForShoot(newItem.metadata), newItem)
     return true
   }
@@ -286,7 +303,7 @@ const mutations = {
   RECEIVE_INFO (state, { namespace, name, info }) {
     const item = findItem({namespace, name})
     if (item !== undefined) {
-      Vue.set(state.shoots, keyForShoot(item.metadata), assign(item, {info}))
+      Vue.set(item, 'info', info)
     }
   },
   SET_SELECTION (state, metadata) {
@@ -314,16 +331,28 @@ const mutations = {
       setSortedItems(state)
     }
   },
-  ITEM_DEL (state, deletedItem) {
+  ITEM_DEL (state, {deletedItem, rootState}) {
     const item = findItem(deletedItem.metadata)
     if (item !== undefined) {
-      delete state.shoots[keyForShoot(item.metadata)]
-      setSortedItems(state)
+      if (rootState.namespace === '_all' && rootState.onlyShootsWithIssues) {
+        Vue.set(item, 'dashboardData.stale', true)
+      } else {
+        delete state.shoots[keyForShoot(item.metadata)]
+        setSortedItems(state)
+      }
     }
   },
   CLEAR_ALL (state) {
     state.shoots = {}
     state.sortedShoots = []
+  },
+  CLEAR_STALE (state) {
+    forEach(state.shoots, shoot => {
+      if (get(shoot, 'dashboardData.stale') === true) {
+        delete state.shoots[keyForShoot(shoot.metadata)]
+      }
+    })
+    setSortedItems(state)
   }
 }
 

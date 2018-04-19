@@ -15,7 +15,7 @@ limitations under the License.
 -->
 
 <template>
-  <tr>
+  <tr :class="trClass">
     <td class="nowrap" v-if="this.headerVisible['project']">
       <router-link class="cyan--text text--darken-2 subheading" :to="{ name: 'ShootList', params: { namespace:row.namespace } }">
         {{ projectName }}
@@ -259,6 +259,9 @@ limitations under the License.
 
         // disabled if info is NOT available
         return !this.isInfoAvailable
+      },
+      trClass () {
+        return get(this.shootItem, 'dashboardData.stale', false) ? 'greyedOut' : ''
       }
     },
     methods: {
@@ -317,4 +320,10 @@ limitations under the License.
 .update_btn >>> i {
   margin-left: -8px;
 }
+
+.greyedOut {
+  background-color: #F5F5F5;
+  opacity: 0.6;
+}
+
 </style>

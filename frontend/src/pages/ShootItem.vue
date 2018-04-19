@@ -15,210 +15,213 @@ limitations under the License.
  -->
 
 <template>
-  <v-tabs class="white" fixed :scrollable="false" v-model="tab">
+  <div>
+    <v-alert type="info" color="grey" :value="isStaleShoot">This Shoot previously had an issue which is now resolved. This is a snapshot of the last error state.</v-alert>
 
-      <v-tabs-slider color="cyan darken-2"></v-tabs-slider>
+    <v-tabs class="white" fixed :scrollable="false" v-model="tab">
 
-      <v-tab href="#formatted" ripple>
-        Overview
-      </v-tab>
+        <v-tabs-slider color="cyan darken-2"></v-tabs-slider>
 
-      <v-tab href="#yaml" ripple>
-        YAML
-      </v-tab>
+        <v-tab href="#formatted" ripple>
+          Overview
+        </v-tab>
 
+        <v-tab href="#yaml" ripple>
+          YAML
+        </v-tab>
 
-    <v-tab-item id="formatted" class="pt-2">
-      <v-container fluid grid-list-lg>
-        <v-layout d-flex wrap row>
-          <v-flex md6>
+      <v-tab-item id="formatted" class="pt-2">
+        <v-container fluid grid-list-lg>
+          <v-layout d-flex wrap row>
+            <v-flex md6>
 
-            <v-card class="cyan darken-2">
-              <v-card-title class="subheading white--text">
-                Details
-              </v-card-title>
-              <v-list>
+              <v-card class="cyan darken-2">
+                <v-card-title class="subheading white--text">
+                  Details
+                </v-card-title>
+                <v-list>
 
-                <v-list-tile>
-                  <v-list-tile-action>
-                    <v-icon class="cyan--text text--darken-2">info_outline</v-icon>
-                  </v-list-tile-action>
-                  <v-list-tile-content>
-                    <v-list-tile-sub-title>Name</v-list-tile-sub-title>
-                    <v-list-tile-title>{{metadata.name}}</v-list-tile-title>
-                  </v-list-tile-content>
-                </v-list-tile>
-
-                <v-divider class="my-2" inset></v-divider>
-                <v-list-tile>
-                  <v-list-tile-action>
-                    <v-icon class="cyan--text text--darken-2">perm_identity</v-icon>
-                  </v-list-tile-action>
-                  <v-list-tile-content>
-                    <v-list-tile-sub-title>Created by</v-list-tile-sub-title>
-                    <v-list-tile-title><a :href="`mailto:${createdBy}`">{{createdBy}}</a></v-list-tile-title>
-                  </v-list-tile-content>
-                </v-list-tile>
-
-                <v-list-tile>
-                  <v-list-tile-action>
-                  </v-list-tile-action>
-                  <v-list-tile-content>
-                    <v-tooltip top>
-                      <template slot="activator">
-                        <v-list-tile-sub-title>Created at</v-list-tile-sub-title>
-                        <v-list-tile-title>{{created}}</v-list-tile-title>
-                      </template>
-                      <time-ago :dateTime="metadata.creationTimestamp"></time-ago>
-                    </v-tooltip>
-                  </v-list-tile-content>
-                </v-list-tile>
-
-                <template v-if="!!purpose">
-                  <v-divider class="my-2" inset></v-divider>
                   <v-list-tile>
                     <v-list-tile-action>
-                      <v-icon class="cyan--text text--darken-2">label_outline</v-icon>
+                      <v-icon class="cyan--text text--darken-2">info_outline</v-icon>
                     </v-list-tile-action>
                     <v-list-tile-content>
-                      <v-list-tile-sub-title>Purpose</v-list-tile-sub-title>
-                      <v-list-tile-title>{{purpose}}</v-list-tile-title>
+                      <v-list-tile-sub-title>Name</v-list-tile-sub-title>
+                      <v-list-tile-title>{{metadata.name}}</v-list-tile-title>
                     </v-list-tile-content>
                   </v-list-tile>
-                </template>
 
-              </v-list>
-            </v-card>
-
-            <v-card class="cyan darken-2 mt-3">
-              <v-card-title class="subheading white--text">
-                Infrastructure
-              </v-card-title>
-              <v-list>
-
-                <v-list-tile>
-                  <v-list-tile-action>
-                    <v-icon class="cyan--text text--darken-2">cloud_queue</v-icon>
-                  </v-list-tile-action>
-                  <v-list-tile-content>
-                    <v-list-tile-sub-title>Provider</v-list-tile-sub-title>
-                    <v-list-tile-title>
-                      <v-tooltip top open-delay="500">
-                        <span slot="activator"> {{getCloudProviderKind}} </span>
-                        <span>Provider</span>
-                      </v-tooltip>
-                      /
-                      <v-tooltip top open-delay="500">
-                        <span slot="activator"> {{region}} </span>
-                        <span>Region</span>
-                      </v-tooltip>
-                      /
-                      <v-tooltip top open-delay="500">
-                        <span slot="activator">{{secret}} </span>
-                        <span>Used Credential</span>
-                      </v-tooltip>
-                    </v-list-tile-title>
-                  </v-list-tile-content>
-                </v-list-tile>
-
-                <template v-if="showSeedInfo">
                   <v-divider class="my-2" inset></v-divider>
                   <v-list-tile>
                     <v-list-tile-action>
-                      <v-icon class="cyan--text text--darken-2">spa</v-icon>
+                      <v-icon class="cyan--text text--darken-2">perm_identity</v-icon>
                     </v-list-tile-action>
                     <v-list-tile-content>
-                      <v-list-tile-sub-title>Seed</v-list-tile-sub-title>
-                      <v-list-tile-title>
-                        <router-link v-if="canLinkToSeed" class="cyan--text text--darken-2 subheading" :to="{ name: 'ShootItem', params: { name: seed, namespace:'garden' } }">
-                          {{seed}}
-                        </router-link>
-                        <template v-else>
-                          {{seed}}
+                      <v-list-tile-sub-title>Created by</v-list-tile-sub-title>
+                      <v-list-tile-title><a :href="`mailto:${createdBy}`">{{createdBy}}</a></v-list-tile-title>
+                    </v-list-tile-content>
+                  </v-list-tile>
+
+                  <v-list-tile>
+                    <v-list-tile-action>
+                    </v-list-tile-action>
+                    <v-list-tile-content>
+                      <v-tooltip top>
+                        <template slot="activator">
+                          <v-list-tile-sub-title>Created at</v-list-tile-sub-title>
+                          <v-list-tile-title>{{created}}</v-list-tile-title>
                         </template>
+                        <time-ago :dateTime="metadata.creationTimestamp"></time-ago>
+                      </v-tooltip>
+                    </v-list-tile-content>
+                  </v-list-tile>
+
+                  <template v-if="!!purpose">
+                    <v-divider class="my-2" inset></v-divider>
+                    <v-list-tile>
+                      <v-list-tile-action>
+                        <v-icon class="cyan--text text--darken-2">label_outline</v-icon>
+                      </v-list-tile-action>
+                      <v-list-tile-content>
+                        <v-list-tile-sub-title>Purpose</v-list-tile-sub-title>
+                        <v-list-tile-title>{{purpose}}</v-list-tile-title>
+                      </v-list-tile-content>
+                    </v-list-tile>
+                  </template>
+
+                </v-list>
+              </v-card>
+
+              <v-card class="cyan darken-2 mt-3">
+                <v-card-title class="subheading white--text">
+                  Infrastructure
+                </v-card-title>
+                <v-list>
+
+                  <v-list-tile>
+                    <v-list-tile-action>
+                      <v-icon class="cyan--text text--darken-2">cloud_queue</v-icon>
+                    </v-list-tile-action>
+                    <v-list-tile-content>
+                      <v-list-tile-sub-title>Provider</v-list-tile-sub-title>
+                      <v-list-tile-title>
+                        <v-tooltip top open-delay="500">
+                          <span slot="activator"> {{getCloudProviderKind}} </span>
+                          <span>Provider</span>
+                        </v-tooltip>
+                        /
+                        <v-tooltip top open-delay="500">
+                          <span slot="activator"> {{region}} </span>
+                          <span>Region</span>
+                        </v-tooltip>
+                        /
+                        <v-tooltip top open-delay="500">
+                          <span slot="activator">{{secret}} </span>
+                          <span>Used Credential</span>
+                        </v-tooltip>
                       </v-list-tile-title>
                     </v-list-tile-content>
                   </v-list-tile>
+
+                  <template v-if="showSeedInfo">
+                    <v-divider class="my-2" inset></v-divider>
+                    <v-list-tile>
+                      <v-list-tile-action>
+                        <v-icon class="cyan--text text--darken-2">spa</v-icon>
+                      </v-list-tile-action>
+                      <v-list-tile-content>
+                        <v-list-tile-sub-title>Seed</v-list-tile-sub-title>
+                        <v-list-tile-title>
+                          <router-link v-if="canLinkToSeed" class="cyan--text text--darken-2 subheading" :to="{ name: 'ShootItem', params: { name: seed, namespace:'garden' } }">
+                            {{seed}}
+                          </router-link>
+                          <template v-else>
+                            {{seed}}
+                          </template>
+                        </v-list-tile-title>
+                      </v-list-tile-content>
+                    </v-list-tile>
+                  </template>
+
+                  <v-divider class="my-2" inset></v-divider>
+                  <v-list-tile>
+                    <v-list-tile-action>
+                      <v-icon class="cyan--text text--darken-2">settings_ethernet</v-icon>
+                    </v-list-tile-action>
+                    <v-list-tile-content>
+                      <v-list-tile-sub-title>CIDR</v-list-tile-sub-title>
+                      <v-list-tile-title>{{cidr}}</v-list-tile-title>
+                    </v-list-tile-content>
+                  </v-list-tile>
+
+                </v-list>
+              </v-card>
+
+              <v-card class="cyan darken-2 mt-3">
+                <v-card-title class="subheading white--text" >
+                  Addons provided by Gardener
+                </v-card-title>
+                <v-list>
+
+                  <v-list-tile avatar v-for="item in addonList" :key="item.name" v-if="addon(item.name).enabled">
+                    <v-list-tile-avatar>
+                      <v-icon class="cyan--text text--darken-2">mdi-puzzle</v-icon>
+                    </v-list-tile-avatar>
+                    <v-list-tile-content>
+                      <v-list-tile-title>{{item.title}}</v-list-tile-title>
+                      <v-list-tile-sub-title>{{item.description}}</v-list-tile-sub-title>
+                    </v-list-tile-content>
+                    <v-list-tile-action>
+                      <template v-if="componentUrl(item.name)">
+                        <v-btn icon :href="componentUrl(item.name)" target="_blank">
+                          <v-icon color="cyan darken-2">mdi-open-in-new</v-icon>
+                        </v-btn>
+                      </template>
+                    </v-list-tile-action>
+                  </v-list-tile>
+
+                </v-list>
+              </v-card>
+
+            </v-flex>
+
+            <v-flex md6 v-show="isInfoAvailable">
+              <v-card>
+                <v-card-title class="subheading white--text cyan darken-2">
+                  Kube-Cluster Access
+                </v-card-title>
+                <cluster-access v-model="mounted" :info="info"></cluster-access>
+                <template v-if="!!info.kubeconfig">
+                  <v-divider class="my-2" inset></v-divider>
+                  <v-expansion-panel>
+                    <v-expansion-panel-content>
+                      <div slot="header" class="kubeconfig-title">
+                        <v-icon class="cyan--text text--darken-2">insert_drive_file</v-icon>
+                        <span>KUBECONFIG</span>
+                      </div>
+                      <v-card>
+                        <code-block v-model="mounted" lang="yaml" :content="info.kubeconfig"></code-block>
+                      </v-card>
+                    </v-expansion-panel-content>
+                  </v-expansion-panel>
                 </template>
+              </v-card>
 
-                <v-divider class="my-2" inset></v-divider>
-                <v-list-tile>
-                  <v-list-tile-action>
-                    <v-icon class="cyan--text text--darken-2">settings_ethernet</v-icon>
-                  </v-list-tile-action>
-                  <v-list-tile-content>
-                    <v-list-tile-sub-title>CIDR</v-list-tile-sub-title>
-                    <v-list-tile-title>{{cidr}}</v-list-tile-title>
-                  </v-list-tile-content>
-                </v-list-tile>
+              <journals v-if="isAdmin" :journals="journals" :shoot="item"></journals>
 
-              </v-list>
-            </v-card>
+            </v-flex>
+          </v-layout>
+        </v-container>
+      </v-tab-item>
 
-            <v-card class="cyan darken-2 mt-3">
-              <v-card-title class="subheading white--text" >
-                Addons provided by Gardener
-              </v-card-title>
-              <v-list>
+      <v-tab-item id="yaml">
+        <v-card>
+          <code-block v-model="mounted" height="100%" lang="yaml" :content="rawItem"></code-block>
+        </v-card>
+      </v-tab-item>
 
-                <v-list-tile avatar v-for="item in addonList" :key="item.name" v-if="addon(item.name).enabled">
-                  <v-list-tile-avatar>
-                    <v-icon class="cyan--text text--darken-2">mdi-puzzle</v-icon>
-                  </v-list-tile-avatar>
-                  <v-list-tile-content>
-                    <v-list-tile-title>{{item.title}}</v-list-tile-title>
-                    <v-list-tile-sub-title>{{item.description}}</v-list-tile-sub-title>
-                  </v-list-tile-content>
-                  <v-list-tile-action>
-                    <template v-if="componentUrl(item.name)">
-                      <v-btn icon :href="componentUrl(item.name)" target="_blank">
-                        <v-icon color="cyan darken-2">mdi-open-in-new</v-icon>
-                      </v-btn>
-                    </template>
-                  </v-list-tile-action>
-                </v-list-tile>
-
-              </v-list>
-            </v-card>
-
-          </v-flex>
-
-          <v-flex md6 v-show="isInfoAvailable">
-            <v-card>
-              <v-card-title class="subheading white--text cyan darken-2">
-                Kube-Cluster Access
-              </v-card-title>
-              <cluster-access v-model="mounted" :info="info"></cluster-access>
-              <template v-if="!!info.kubeconfig">
-                <v-divider class="my-2" inset></v-divider>
-                <v-expansion-panel>
-                  <v-expansion-panel-content>
-                    <div slot="header" class="kubeconfig-title">
-                      <v-icon class="cyan--text text--darken-2">insert_drive_file</v-icon>
-                      <span>KUBECONFIG</span>
-                    </div>
-                    <v-card>
-                      <code-block v-model="mounted" lang="yaml" :content="info.kubeconfig"></code-block>
-                    </v-card>
-                  </v-expansion-panel-content>
-                </v-expansion-panel>
-              </template>
-            </v-card>
-
-            <journals v-if="isAdmin" :journals="journals" :shoot="item"></journals>
-
-          </v-flex>
-        </v-layout>
-      </v-container>
-    </v-tab-item>
-
-    <v-tab-item id="yaml">
-      <v-card>
-        <code-block v-model="mounted" height="100%" lang="yaml" :content="rawItem"></code-block>
-      </v-card>
-    </v-tab-item>
-
-  </v-tabs>
+    </v-tabs>
+  </div>
 </template>
 
 
@@ -408,6 +411,9 @@ limitations under the License.
             this.$router.push({ query: { tab: newTab } })
           }
         }
+      },
+      isStaleShoot () {
+        return get(this.item, 'dashboardData.stale', false)
       }
     },
     mounted () {

@@ -263,6 +263,12 @@ const actions = {
         dispatch('setError', err)
       })
   },
+  clearStaleShoots ({ dispatch, commit }) {
+    return dispatch('shoots/clearStale')
+      .catch(err => {
+        dispatch('setError', err)
+      })
+  },
   fetchShoot ({ dispatch, commit }, {name, namespace}) {
     return dispatch('shoots/get', {name, namespace})
       .catch(err => {
@@ -471,13 +477,15 @@ addListener({
   itemKey: 'object',
   eventHandlerFn: {
     put: object => {
-      if (getters.isCurrentNamespace(object.metadata.namespace)) {
+      if (getters.isCurrentNamespace(object.metadata.namespace) &&
+      // eslint-disable-next-line lodash/path-style
+      (state.namespace !== '_all' || state.onlyShootsWithIssues === !!get(object, ['metadata', 'labels', 'shoot.garden.sapcloud.io/unhealthy']))) {
         store.commit('shoots/ITEM_PUT', object)
       }
+    },
+    delete: object => {
+      store.commit('shoots/ITEM_DEL', {deletedItem: object, rootState: state})
     }
-  },
-  mutationMapping: {
-    delete: 'shoots/ITEM_DEL'
   }
 })
 addListener({
@@ -489,6 +497,11 @@ addListener({
       let objectsToPut = []
       mapKeys(data, (objects, namespace) => {
         if (getters.isCurrentNamespace(namespace)) {
+          if (state.namespace === '_all' && state.onlyShootsWithIssues) {
+            // eslint-disable-next-line lodash/path-style
+            const predicate = item => get(item, ['metadata', 'labels', 'shoot.garden.sapcloud.io/unhealthy'])
+            objects = filter(objects, predicate)
+          }
           objectsToPut = concat(objectsToPut, objects)
         }
       })
@@ -502,17 +515,23 @@ addListener({
   emitter: EmitterWrapper.journalsEmitter,
   eventName: 'issue',
   itemKey: 'object',
-  mutationMapping: {
-    put: 'journals/ITEM_PUT',
-    delete: 'journals/ITEM_DEL'
+  eventHandlerFn: {
+    put: object => {
+      store.commit('journals/ITEM_PUT', object)
+    },
+    delete: object => {
+      store.commit('journals/ITEM_DEL', object)
+    }
   }
 })
 addListener({
   emitter: EmitterWrapper.journalsEmitter,
   eventName: 'issues',
   itemKey: 'data',
-  mutationMapping: {
-    put: 'journals/ITEMS_PUT'
+  eventHandlerFn: {
+    put: objectsToPut => {
+      store.commit('journals/ITEMS_PUT', objectsToPut)
+    }
   }
 })
 
@@ -521,17 +540,23 @@ addListener({
   emitter: EmitterWrapper.journalsEmitter,
   eventName: 'comment',
   itemKey: 'object',
-  mutationMapping: {
-    put: 'journals/COMMENT_PUT',
-    delete: 'journals/COMMENT_DEL'
+  eventHandlerFn: {
+    put: object => {
+      store.commit('journals/COMMENT_PUT', object)
+    },
+    delete: object => {
+      store.commit('journals/COMMENT_DEL', object)
+    }
   }
 })
 addListener({
   emitter: EmitterWrapper.journalsEmitter,
   eventName: 'comments',
   itemKey: 'data',
-  mutationMapping: {
-    put: 'journals/COMMENTS_PUT'
+  eventHandlerFn: {
+    put: objectsToPut => {
+      store.commit('journals/COMMENTS_PUT', objectsToPut)
+    }
   }
 })
 
