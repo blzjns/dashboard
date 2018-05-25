@@ -96,7 +96,7 @@ limitations under the License.
           </v-btn>
           <span>Show Kubeconfig</span>
         </v-tooltip>
-        <v-tooltip top>
+        <v-tooltip top v-show="!isStale">
           <v-btn small icon class="red--text" slot="activator" :disabled="isDeleteDialogDisabled" @click="showDialog('delete')">
             <v-icon>delete</v-icon>
           </v-btn>
@@ -121,7 +121,7 @@ limitations under the License.
               </v-list-tile-action>
               <v-list-tile-title>Show Kubeconfig</v-list-tile-title>
             </v-list-tile>
-            <v-list-tile :disabled="isDeleteDialogDisabled" @click="showDialog('delete', isDeleteDialogDisabled)">
+            <v-list-tile v-show="!isStale" :disabled="isDeleteDialogDisabled" @click="showDialog('delete', isDeleteDialogDisabled)">
               <v-list-tile-action>
                 <v-icon class="red--text">delete</v-icon>
               </v-list-tile-action>
@@ -260,8 +260,11 @@ limitations under the License.
         // disabled if info is NOT available
         return !this.isInfoAvailable
       },
+      isStale () {
+        return get(this.shootItem, 'dashboardData.stale', false)
+      },
       trClass () {
-        return get(this.shootItem, 'dashboardData.stale', false) ? 'greyedOut' : ''
+        return this.isStale ? 'greyedOut' : ''
       }
     },
     methods: {

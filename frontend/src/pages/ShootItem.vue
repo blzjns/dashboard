@@ -16,11 +16,13 @@ limitations under the License.
 
 <template>
   <div>
+    <cluster-deleted-dialog :value="isDeletedShoot" @confirmed="onConfirmDeletedShoot"></cluster-deleted-dialog>
+
     <v-alert type="info" color="grey" :value="isStaleShoot">This Shoot previously had an issue which is now resolved. This is a snapshot of the last error state.</v-alert>
 
     <v-tabs class="white" fixed :scrollable="false" v-model="tab">
 
-        <v-tabs-slider color="cyan darken-2"></v-tabs-slider>
+        <v-tabs-slider :color="colorClass"></v-tabs-slider>
 
         <v-tab href="#formatted" ripple>
           Overview
@@ -35,7 +37,7 @@ limitations under the License.
           <v-layout d-flex wrap row>
             <v-flex md6>
 
-              <v-card class="cyan darken-2">
+              <v-card :class="colorClass">
                 <v-card-title class="subheading white--text">
                   Details
                 </v-card-title>
@@ -43,7 +45,7 @@ limitations under the License.
 
                   <v-list-tile>
                     <v-list-tile-action>
-                      <v-icon class="cyan--text text--darken-2">info_outline</v-icon>
+                      <v-icon :class="textColorClass">info_outline</v-icon>
                     </v-list-tile-action>
                     <v-list-tile-content>
                       <v-list-tile-sub-title>Name</v-list-tile-sub-title>
@@ -54,7 +56,7 @@ limitations under the License.
                   <v-divider class="my-2" inset></v-divider>
                   <v-list-tile>
                     <v-list-tile-action>
-                      <v-icon class="cyan--text text--darken-2">perm_identity</v-icon>
+                      <v-icon :class="textColorClass">perm_identity</v-icon>
                     </v-list-tile-action>
                     <v-list-tile-content>
                       <v-list-tile-sub-title>Created by</v-list-tile-sub-title>
@@ -80,7 +82,7 @@ limitations under the License.
                     <v-divider class="my-2" inset></v-divider>
                     <v-list-tile>
                       <v-list-tile-action>
-                        <v-icon class="cyan--text text--darken-2">label_outline</v-icon>
+                        <v-icon :class="textColorClass">label_outline</v-icon>
                       </v-list-tile-action>
                       <v-list-tile-content>
                         <v-list-tile-sub-title>Purpose</v-list-tile-sub-title>
@@ -92,7 +94,7 @@ limitations under the License.
                 </v-list>
               </v-card>
 
-              <v-card class="cyan darken-2 mt-3">
+              <v-card :class="colorClass" class="mt-3">
                 <v-card-title class="subheading white--text">
                   Infrastructure
                 </v-card-title>
@@ -100,7 +102,7 @@ limitations under the License.
 
                   <v-list-tile>
                     <v-list-tile-action>
-                      <v-icon class="cyan--text text--darken-2">cloud_queue</v-icon>
+                      <v-icon :class="textColorClass">cloud_queue</v-icon>
                     </v-list-tile-action>
                     <v-list-tile-content>
                       <v-list-tile-sub-title>Provider</v-list-tile-sub-title>
@@ -127,12 +129,12 @@ limitations under the License.
                     <v-divider class="my-2" inset></v-divider>
                     <v-list-tile>
                       <v-list-tile-action>
-                        <v-icon class="cyan--text text--darken-2">spa</v-icon>
+                        <v-icon :class="textColorClass">spa</v-icon>
                       </v-list-tile-action>
                       <v-list-tile-content>
                         <v-list-tile-sub-title>Seed</v-list-tile-sub-title>
                         <v-list-tile-title>
-                          <router-link v-if="canLinkToSeed" class="cyan--text text--darken-2 subheading" :to="{ name: 'ShootItem', params: { name: seed, namespace:'garden' } }">
+                          <router-link v-if="canLinkToSeed" :class="textColorClass" class="subheading" :to="{ name: 'ShootItem', params: { name: seed, namespace:'garden' } }">
                             {{seed}}
                           </router-link>
                           <template v-else>
@@ -146,7 +148,7 @@ limitations under the License.
                   <v-divider class="my-2" inset></v-divider>
                   <v-list-tile>
                     <v-list-tile-action>
-                      <v-icon class="cyan--text text--darken-2">settings_ethernet</v-icon>
+                      <v-icon :class="textColorClass">settings_ethernet</v-icon>
                     </v-list-tile-action>
                     <v-list-tile-content>
                       <v-list-tile-sub-title>CIDR</v-list-tile-sub-title>
@@ -157,7 +159,7 @@ limitations under the License.
                 </v-list>
               </v-card>
 
-              <v-card class="cyan darken-2 mt-3">
+              <v-card :class="colorClass" class="mt-3">
                 <v-card-title class="subheading white--text" >
                   Addons provided by Gardener
                 </v-card-title>
@@ -165,7 +167,7 @@ limitations under the License.
 
                   <v-list-tile avatar v-for="item in addonList" :key="item.name" v-if="addon(item.name).enabled">
                     <v-list-tile-avatar>
-                      <v-icon class="cyan--text text--darken-2">mdi-puzzle</v-icon>
+                      <v-icon :class="textColorClass">mdi-puzzle</v-icon>
                     </v-list-tile-avatar>
                     <v-list-tile-content>
                       <v-list-tile-title>{{item.title}}</v-list-tile-title>
@@ -174,7 +176,7 @@ limitations under the License.
                     <v-list-tile-action>
                       <template v-if="componentUrl(item.name)">
                         <v-btn icon :href="componentUrl(item.name)" target="_blank">
-                          <v-icon color="cyan darken-2">mdi-open-in-new</v-icon>
+                          <v-icon :class="textColorClass">mdi-open-in-new</v-icon>
                         </v-btn>
                       </template>
                     </v-list-tile-action>
@@ -182,25 +184,24 @@ limitations under the License.
 
                 </v-list>
               </v-card>
-
             </v-flex>
 
             <v-flex md6 v-show="isInfoAvailable">
               <v-card>
-                <v-card-title class="subheading white--text cyan darken-2">
+                <v-card-title :class="colorClass" class="subheading white--text">
                   Kube-Cluster Access
                 </v-card-title>
-                <cluster-access v-model="mounted" :info="info"></cluster-access>
+                <cluster-access ref="clusterAccess" :info="info" :textColorClass="textColorClass"></cluster-access>
                 <template v-if="!!info.kubeconfig">
                   <v-divider class="my-2" inset></v-divider>
                   <v-expansion-panel>
                     <v-expansion-panel-content>
                       <div slot="header" class="kubeconfig-title">
-                        <v-icon class="cyan--text text--darken-2">insert_drive_file</v-icon>
+                        <v-icon :class="textColorClass">insert_drive_file</v-icon>
                         <span>KUBECONFIG</span>
                       </div>
                       <v-card>
-                        <code-block v-model="mounted" lang="yaml" :content="info.kubeconfig"></code-block>
+                        <code-block lang="yaml" :content="info.kubeconfig"></code-block>
                       </v-card>
                     </v-expansion-panel-content>
                   </v-expansion-panel>
@@ -213,20 +214,18 @@ limitations under the License.
           </v-layout>
         </v-container>
       </v-tab-item>
-
       <v-tab-item id="yaml">
         <v-card>
-          <code-block v-model="mounted" height="100%" lang="yaml" :content="rawItem"></code-block>
+          <code-block height="100%" lang="yaml" :content="rawItem"></code-block>
         </v-card>
       </v-tab-item>
-
     </v-tabs>
   </div>
 </template>
 
 
 <script>
-  import { mapGetters, mapActions } from 'vuex'
+  import { mapGetters, mapActions, mapState } from 'vuex'
   import CodeBlock from '@/components/CodeBlock'
   import ClusterAccess from '@/components/ClusterAccess'
   import Journals from '@/components/Journals'
@@ -235,6 +234,7 @@ limitations under the License.
   import includes from 'lodash/includes'
   import { safeDump } from 'js-yaml'
   import { getDateFormatted, getCloudProviderKind, canLinkToSeed } from '@/utils'
+  import ClusterDeletedDialog from '@/dialogs/ClusterDeletedDialog'
 
   export default {
     name: 'shoot-list',
@@ -242,7 +242,8 @@ limitations under the License.
       CodeBlock,
       ClusterAccess,
       Journals,
-      TimeAgo
+      TimeAgo,
+      ClusterDeletedDialog
     },
     data () {
       return {
@@ -283,8 +284,13 @@ limitations under the License.
     },
     methods: {
       ...mapActions([
-        'setSelectedShoot'
-      ])
+        'setSelectedShoot',
+        'removeShootFromStore'
+      ]),
+      onConfirmDeletedShoot () {
+        this.removeShootFromStore(this.item)
+        this.$router.push({name: 'ShootList', params: {namespace: this.storeNamespace}})
+      }
     },
     computed: {
       ...mapGetters([
@@ -293,6 +299,9 @@ limitations under the License.
         'isAdmin',
         'namespaces'
       ]),
+      ...mapState({
+        storeNamespace: 'namespace'
+      }),
       getCloudProviderKind () {
         return getCloudProviderKind(get(this.item, 'spec.cloud'))
       },
@@ -331,6 +340,9 @@ limitations under the License.
         if (metadata.annotations && metadata.annotations['seed.garden.sapcloud.io/kubeconfig']) {
           // delete in item orginal
           delete metadata.annotations['seed.garden.sapcloud.io/kubeconfig']
+        }
+        if (item.dashboardData) {
+          delete item.dashboardData
         }
         return safeDump(item, {
           skipInvalid: true
@@ -414,10 +426,23 @@ limitations under the License.
       },
       isStaleShoot () {
         return get(this.item, 'dashboardData.stale', false)
+      },
+      isDeletedShoot () {
+        return !get(this.item, 'dashboardData.notFound', false)
+      },
+      colorClass () {
+        return this.isStaleShoot ? 'grey' : 'cyan darken-2'
+      },
+      textColorClass () {
+        return this.isStaleShoot ? 'grey--text' : 'cyan--text text--darken-2'
       }
     },
     mounted () {
       this.mounted = true
+    },
+    beforeRouteUpdate (to, from, next) {
+      this.$refs.clusterAccess.reset()
+      next()
     }
   }
 </script>

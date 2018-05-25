@@ -73,20 +73,21 @@ limitations under the License.
       </v-alert>
       <v-data-table class="shootListTable" :headers="visibleHeaders" :items="items" :search="search" :pagination.sync="pagination" :total-items="items.length" hide-actions must-sort :loading="shootsLoading">
         <template slot="items" slot-scope="props">
-          <shoot-list-row :shootItem="props.item" :visibleHeaders="visibleHeaders" v-on:showDialog="showDialog"></shoot-list-row>
+          <shoot-list-row :shootItem="props.item" :visibleHeaders="visibleHeaders" @showDialog="showDialog"></shoot-list-row>
         </template>
       </v-data-table>
+      <cluster-deleted-dialog :value="selectedDeletedShootDialog" @confirmed="onConfirmDeletedShoot"></cluster-deleted-dialog>
       <v-dialog v-model="kubeconfigDialog" persistent max-width="67%">
         <v-card>
           <v-card-title class="teal darken-1 grey--text text--lighten-4">
             <div class="headline">Kubeconfig <code class="cluster_name">{{currentName}}</code></div>
             <v-spacer></v-spacer>
-            <v-btn icon class="grey--text text--lighten-4" @click.native="hideDialog()">
+            <v-btn icon class="grey--text text--lighten-4" @click.native="hideDialog">
               <v-icon>close</v-icon>
             </v-btn>
           </v-card-title>
           <v-card-text>
-            <code-block v-model="kubeconfigDialog" lang="yaml" :content="currentKubeconfig"></code-block>
+            <code-block lang="yaml" :content="currentKubeconfig"></code-block>
           </v-card-text>
         </v-card>
       </v-dialog>
@@ -95,11 +96,11 @@ limitations under the License.
           <v-card-title class="teal darken-1 grey--text text--lighten-4">
             <div class="headline">Kube-Cluster Access <code class="cluster_name">{{currentName}}</code></div>
             <v-spacer></v-spacer>
-            <v-btn icon class="grey--text text--lighten-4" @click.native="hideDialog()">
+            <v-btn icon class="grey--text text--lighten-4" @click.native="hideDialog">
               <v-icon>close</v-icon>
             </v-btn>
           </v-card-title>
-          <cluster-access v-model="dashboardDialog" :info="currentInfo"></cluster-access>
+          <cluster-access ref="clusterAccess" :info="currentInfo" textColorClass="cyan--text text--darken-2"></cluster-access>
         </v-card>
       </v-dialog>
       <confirm-input-dialog :confirm="currentName" v-model="deleteDialog" :cancel="hideDialog" :ok="deletionConfirmed">
@@ -138,22 +139,22 @@ limitations under the License.
   import map from 'lodash/map'
   import get from 'lodash/get'
   import CodeBlock from '@/components/CodeBlock'
-  import GPopper from '@/components/GPopper'
   import ShootListRow from '@/components/ShootListRow'
   import CreateCluster from '@/dialogs/CreateCluster'
   import ConfirmInputDialog from '@/dialogs/ConfirmInputDialog'
   import ClusterAccess from '@/components/ClusterAccess'
   import { getCreatedBy } from '@/utils'
+  import ClusterDeletedDialog from '@/dialogs/ClusterDeletedDialog'
 
   export default {
     name: 'shoot-list',
     components: {
       CodeBlock,
       CreateCluster,
-      GPopper,
       ShootListRow,
       ConfirmInputDialog,
-      ClusterAccess
+      ClusterAccess,
+      ClusterDeletedDialog
     },
     data () {
       return {
@@ -191,7 +192,8 @@ limitations under the License.
         'setSelectedShoot',
         'setShootSortPrams',
         'setOnlyShootsWithIssues',
-        'clearStaleShoots'
+        'clearStaleShoots',
+        'removeShootFromStore'
       ]),
       deletionConfirmed () {
         this.deleteShoot({name: this.currentName, namespace: this.currentNamespace})
@@ -213,6 +215,11 @@ limitations under the License.
         }
       },
       hideDialog () {
+        switch (this.dialog) {
+          case 'dashboard':
+            this.$refs.clusterAccess.reset()
+            break
+        }
         this.dialog = null
         this.setSelectedShoot(null)
       },
@@ -240,14 +247,23 @@ limitations under the License.
         const checkedColumns = this.$localStorage.getObject('dataTable_checkedColumns') || {}
         for (const header of this.allHeaders) {
           header.checked = get(checkedColumns, header.value, header.defaultChecked)
+
+          if (header.value === 'journal') {
+            header.hidden = !this.isAdmin
+          }
         }
+      },
+      onConfirmDeletedShoot () {
+        this.removeShootFromStore(this.selectedItem)
+        this.hideDialog()
       }
     },
     computed: {
       ...mapGetters({
         items: 'shootList',
         item: 'shootByNamespaceAndName',
-        selectedItem: 'selectedShoot'
+        selectedItem: 'selectedShoot',
+        isAdmin: 'isAdmin'
       }),
       ...mapState([
         'shootsLoading',
@@ -265,7 +281,7 @@ limitations under the License.
       },
       deleteDialog: {
         get () {
-          return this.dialog === 'delete'
+          return this.dialog === 'delete' && !this.selectedDeletedShootDialog
         },
         set (value) {
           if (!value) {
@@ -275,7 +291,7 @@ limitations under the License.
       },
       kubeconfigDialog: {
         get () {
-          return this.dialog === 'kubeconfig'
+          return this.dialog === 'kubeconfig' && !this.selectedDeletedShootDialog
         },
         set (value) {
           if (!value) {
@@ -285,13 +301,16 @@ limitations under the License.
       },
       dashboardDialog: {
         get () {
-          return this.dialog === 'dashboard'
+          return this.dialog === 'dashboard' && !this.selectedDeletedShootDialog
         },
         set (value) {
           if (!value) {
             this.dialog = null
           }
         }
+      },
+      selectedDeletedShootDialog () {
+        return !!this.selectedItem && get(this.selectedItem, 'dashboardData.notFound', false)
       },
       currentMetadata () {
         return get(this.selectedItem, 'metadata')

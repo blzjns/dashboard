@@ -17,16 +17,16 @@ limitations under the License.
 <template>
   <v-list>
 
-    <v-list-tile v-if="!!dashboardUrl">
+    <v-list-tile v-show="!!dashboardUrl">
       <v-list-tile-action>
-        <v-icon class="cyan--text text--darken-2">developer_board</v-icon>
+        <v-icon :class="textColorClass">developer_board</v-icon>
       </v-list-tile-action>
       <v-list-tile-content>
         <v-list-tile-sub-title>Dashboard</v-list-tile-sub-title>
         <v-list-tile-title><a :href="dashboardUrl" target="_blank">{{dashboardUrlText}}</a></v-list-tile-title>
       </v-list-tile-content>
     </v-list-tile>
-    <template v-if="!!info.shootIngressDomain && isAdmin">
+    <template v-if="!!shootIngressDomain && isAdmin">
       <v-list-tile>
         <v-list-tile-action>
         </v-list-tile-action>
@@ -53,11 +53,11 @@ limitations under the License.
       </v-list-tile>
     </template>
 
-    <template v-if="!!username && !!password">
+    <template v-show="!!username && !!password">
       <v-divider class="my-2" inset></v-divider>
       <v-list-tile>
         <v-list-tile-action>
-          <v-icon class="cyan--text text--darken-2">perm_identity</v-icon>
+          <v-icon :class="textColorClass">perm_identity</v-icon>
         </v-list-tile-action>
         <v-list-tile-content>
           <v-list-tile-sub-title>User</v-list-tile-sub-title>
@@ -97,12 +97,12 @@ limitations under the License.
       Clipboard
     },
     props: {
-      value: {
-        type: Boolean,
-        required: true
-      },
       info: {
         type: Object,
+        required: true
+      },
+      textColorClass: {
+        type: String,
         required: true
       }
     },
@@ -115,21 +115,12 @@ limitations under the License.
     },
     methods: {
       enableCopy () {
-        if (this.clipboard) {
-          this.clipboard.destroy()
-        }
-
-        const copyRef = this.$refs.copy
-        if (copyRef) {
-          this.clipboard = new Clipboard(copyRef.$el, {
-            text: () => {
-              return this.password
-            }
-          })
-          this.clipboard.on('success', (event) => {
-            this.snackbar = true
-          })
-        }
+        this.clipboard = new Clipboard(this.$refs.copy.$el, {
+          text: () => this.password
+        })
+        this.clipboard.on('success', (event) => {
+          this.snackbar = true
+        })
       },
       reset () {
         this.snackbar = false
@@ -157,6 +148,9 @@ limitations under the License.
       },
       dashboardUrlText () {
         return this.info.dashboardUrlText || ''
+      },
+      shootIngressDomain () {
+        return this.info.shootIngressDomain || ''
       },
       username () {
         return this.info.username || ''
@@ -186,16 +180,8 @@ limitations under the License.
         }
       }
     },
-    watch: {
-      value (value) {
-        if (value) {
-          this.$nextTick(() => {
-            this.enableCopy()
-          })
-        } else {
-          this.reset()
-        }
-      }
+    mounted () {
+      this.enableCopy()
     }
   }
 </script>

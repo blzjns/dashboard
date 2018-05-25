@@ -24,7 +24,7 @@ limitations under the License.
           <span>Create Cluster</span>
         </v-toolbar-title>
         <v-tabs align-with-title dark slot="extension" v-model="activeTab">
-          <v-tabs-slider class="yellow"></v-tabs-slider>
+          <v-tabs-slider color="yellow"></v-tabs-slider>
           <v-tab key="infra"  href="#tab-infra"  ripple>Infrastructure</v-tab>
           <v-tab key="worker" href="#tab-worker" ripple>Worker</v-tab>
           <v-tab key="addons" href="#tab-addons" ripple>Addons</v-tab>
@@ -431,7 +431,7 @@ limitations under the License.
   import { required, maxLength } from 'vuelidate/lib/validators'
   import CodeBlock from '@/components/CodeBlock'
   import InfraIcon from '@/components/InfrastructureIcon'
-  import { setInputFocus, isOwnSecretBinding, getValidationErrors } from '@/utils'
+  import { setDelayedInputFocus, isOwnSecretBinding, getValidationErrors } from '@/utils'
   import moment from 'moment'
 
   var semSort = require('semver-sort')
@@ -948,7 +948,7 @@ limitations under the License.
         this.errorMessage = undefined
         this.detailedMessage = undefined
 
-        setInputFocus(this, 'name')
+        setDelayedInputFocus(this, 'name')
       },
       setDefaultDomain () {
         const domain = head(this.domainList)

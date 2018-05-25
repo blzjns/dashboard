@@ -180,13 +180,12 @@ const getters = {
       return getters['journals/lastUpdated']({namespace, name})
     }
   },
-  shootsByInfrastructureSecret (state) {
-    return (secretName, namespace) => {
+  shootsByInfrastructureSecret (state, getters) {
+    return (secretName) => {
       const predicate = item => {
-        const secretBindingRef = get(item, 'spec.cloud.secretBindingRef')
-        return get(secretBindingRef, 'name') === secretName && get(secretBindingRef, 'namespace') === namespace
+        return get(item, 'spec.cloud.secretBindingRef.name') === secretName
       }
-      return filter(state.shoots.all, predicate)
+      return filter(getters['shoots/sortedItems'], predicate)
     }
   },
   kubernetesVersions (state, getters) {
@@ -339,6 +338,10 @@ const actions = {
         dispatch('setError', err)
       })
   },
+  removeShootFromStore ({ commit, getters }, shoot) {
+    commit('shoots/REMOVE_FROM_STORE', {deletedItem: shoot, rootState: state})
+    return getters.shootList
+  },
   addMember ({ dispatch, commit }, name) {
     return dispatch('members/add', name)
       .catch(err => {
@@ -392,7 +395,7 @@ const actions = {
     return state.shootsLoading
   },
   unsetShootsLoading ({ commit, getters }, namespaces) {
-    const currentNamespace = some(namespaces, namespace => !getters.isCurrentNamespace(namespace))
+    const currentNamespace = !some(namespaces, namespace => !getters.isCurrentNamespace(namespace))
     if (currentNamespace) {
       commit('SET_SHOOTS_LOADING', false)
     }
@@ -458,106 +461,25 @@ const store = new Vuex.Store({
   plugins
 })
 
-const addListener = ({emitter, eventName, itemKey, mutationMapping = {}, eventHandlerFn = {}}) => {
-  emitter.on(eventName, (event) => {
-    if (eventHandlerFn[event.type]) {
-      eventHandlerFn[event.type](event[itemKey])
-    } else if (mutationMapping[event.type]) {
-      store.commit(mutationMapping[event.type], event[itemKey])
-    } else {
-      console.error('unhandled type', event.type)
+/* Shoots */
+EmitterWrapper.shootsEmitter.on('shoots', namespacedEvents => {
+  let eventsToHandle = []
+  mapKeys(namespacedEvents, (events, namespace) => {
+    if (store.getters.isCurrentNamespace(namespace)) {
+      eventsToHandle = concat(eventsToHandle, events)
     }
   })
-}
-
-/* Shoots */
-addListener({
-  emitter: EmitterWrapper.shootsEmitter,
-  eventName: 'shoot',
-  itemKey: 'object',
-  eventHandlerFn: {
-    put: object => {
-      if (getters.isCurrentNamespace(object.metadata.namespace) &&
-      // eslint-disable-next-line lodash/path-style
-      (state.namespace !== '_all' || state.onlyShootsWithIssues === !!get(object, ['metadata', 'labels', 'shoot.garden.sapcloud.io/unhealthy']))) {
-        store.commit('shoots/ITEM_PUT', object)
-      }
-    },
-    delete: object => {
-      store.commit('shoots/ITEM_DEL', {deletedItem: object, rootState: state})
-    }
-  }
-})
-addListener({
-  emitter: EmitterWrapper.shootsEmitter,
-  eventName: 'shoots',
-  itemKey: 'data',
-  eventHandlerFn: {
-    put: data => {
-      let objectsToPut = []
-      mapKeys(data, (objects, namespace) => {
-        if (getters.isCurrentNamespace(namespace)) {
-          if (state.namespace === '_all' && state.onlyShootsWithIssues) {
-            // eslint-disable-next-line lodash/path-style
-            const predicate = item => get(item, ['metadata', 'labels', 'shoot.garden.sapcloud.io/unhealthy'])
-            objects = filter(objects, predicate)
-          }
-          objectsToPut = concat(objectsToPut, objects)
-        }
-      })
-      store.commit('shoots/ITEMS_PUT', objectsToPut)
-    }
-  }
+  store.commit('shoots/HANDLE_EVENTS', {rootState: state, events: eventsToHandle})
 })
 
 /* Journal Issues */
-addListener({
-  emitter: EmitterWrapper.journalsEmitter,
-  eventName: 'issue',
-  itemKey: 'object',
-  eventHandlerFn: {
-    put: object => {
-      store.commit('journals/ITEM_PUT', object)
-    },
-    delete: object => {
-      store.commit('journals/ITEM_DEL', object)
-    }
-  }
-})
-addListener({
-  emitter: EmitterWrapper.journalsEmitter,
-  eventName: 'issues',
-  itemKey: 'data',
-  eventHandlerFn: {
-    put: objectsToPut => {
-      store.commit('journals/ITEMS_PUT', objectsToPut)
-    }
-  }
+EmitterWrapper.journalsEmitter.on('issues', events => {
+  store.commit('journals/HANDLE_ISSUE_EVENTS', events)
 })
 
 /* Journal Comments */
-addListener({
-  emitter: EmitterWrapper.journalsEmitter,
-  eventName: 'comment',
-  itemKey: 'object',
-  eventHandlerFn: {
-    put: object => {
-      store.commit('journals/COMMENT_PUT', object)
-    },
-    delete: object => {
-      store.commit('journals/COMMENT_DEL', object)
-    }
-  }
-})
-addListener({
-  emitter: EmitterWrapper.journalsEmitter,
-  eventName: 'comments',
-  itemKey: 'data',
-  eventHandlerFn: {
-    put: objectsToPut => {
-      store.commit('journals/COMMENTS_PUT', objectsToPut)
-    }
-  }
+EmitterWrapper.journalsEmitter.on('comments', events => {
+  store.commit('journals/HANDLE_COMMENTS_EVENTS', events)
 })
 
 export default store

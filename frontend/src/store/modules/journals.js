@@ -25,8 +25,12 @@ import get from 'lodash/get'
 import head from 'lodash/head'
 import orderBy from 'lodash/orderBy'
 
-const eqlNameAndNamespace = ({namespace, name}) => {
-  return matches({ metadata: { namespace, name } })
+const eqlNameAndNamespace = ({namespace, name, state = undefined}) => {
+  const source = { metadata: { namespace, name } }
+  if (state) {
+    source.metadata.state = state
+  }
+  return matches(source)
 }
 
 const eqIssue = issue => {
@@ -39,20 +43,20 @@ const state = {
   allComments: {}
 }
 
-const getIssues = (state, name, namespace) => {
-  return filter(state.all, eqlNameAndNamespace({name, namespace}))
+const getOpenIssues = (state, name, namespace) => {
+  return filter(state.all, eqlNameAndNamespace({name, namespace, state: 'open'}))
 }
 // getters
 const getters = {
   items: state => state.all,
   issues: (state) => ({name, namespace}) => {
-    return getIssues(state, name, namespace)
+    return getOpenIssues(state, name, namespace)
   },
   comments: (state) => ({issueNumber}) => {
     return state.allComments[issueNumber]
   },
   lastUpdated: (state) => ({name, namespace}) => {
-    const lastUpdatedIssue = head(getIssues(state, name, namespace))
+    const lastUpdatedIssue = head(getOpenIssues(state, name, namespace))
     return get(lastUpdatedIssue, 'metadata.updated_at')
   }
 }
@@ -69,37 +73,57 @@ const orderJournalsByUpdatedAt = () => {
 }
 // mutations
 const mutations = {
-  ITEM_PUT (state, newItem) {
-    putItem(state, newItem)
+  HANDLE_ISSUE_EVENTS (state, events) {
+    forEach(events, event => {
+      switch (event.type) {
+        case 'ADDED':
+        case 'MODIFIED':
+          putItem(state, event.object)
+          break
+        case 'DELETED':
+          deleteItem(state, event.object)
+          break
+        default:
+          console.error('undhandled event type', event.type)
+      }
+    })
     orderJournalsByUpdatedAt()
   },
-  ITEMS_PUT (state, newItems) {
-    forEach(newItems, newItem => putItem(state, newItem))
+  HANDLE_COMMENTS_EVENTS (state, events) {
+    forEach(events, event => {
+      switch (event.type) {
+        case 'ADDED':
+        case 'MODIFIED':
+          putComment(state, event.object)
+          break
+        case 'DELETED':
+          deleteComment(state, event.object)
+          break
+        default:
+          console.error('undhandled event type', event.type)
+      }
+    })
     orderJournalsByUpdatedAt()
-  },
-  ITEM_DEL (state, deletedItem) {
-    const index = findIndex(state.all, eqIssue(deletedItem))
-    if (index !== -1) {
-      state.all.splice(index, 1)
-    }
-  },
-  COMMENT_PUT (state, newItem) {
-    putComment(state, newItem)
-  },
-  COMMENTS_PUT (state, newItems) {
-    forEach(newItems, newItem => putComment(state, newItem))
-  },
-  COMMENT_DEL (state, deletedItem) {
-    const issueNumber = get(deletedItem, 'metadata.number')
-
-    // eslint-disable-next-line
-    const index = findIndex(commentForIssue(state, issueNumber), matchesProperty('metadata.id', deletedItem.metadata.id))
-    if (index !== -1) {
-      state.allComments[issueNumber].splice(index, 1)
-    }
   },
   CLEAR_COMMENTS (state) {
     state.allComments = {}
+  }
+}
+
+const deleteItem = (state, deletedItem) => {
+  const index = findIndex(state.all, eqIssue(deletedItem))
+  if (index !== -1) {
+    state.all.splice(index, 1)
+  }
+}
+
+const deleteComment = (state, deletedItem) => {
+  const issueNumber = get(deletedItem, 'metadata.number')
+
+  // eslint-disable-next-line
+  const index = findIndex(commentForIssue(state, issueNumber), matchesProperty('metadata.id', deletedItem.metadata.id))
+  if (index !== -1) {
+    state.allComments[issueNumber].splice(index, 1)
   }
 }
 

@@ -89,6 +89,17 @@ const actions = {
       })
       .then(() => dispatch('getInfo', {name, namespace}))
       .then(() => findItem({name, namespace}))
+      .catch(error => {
+        // shoot info not found -> ignore if KubernetesError
+        if (isNotFound(error)) {
+          const item = findItem({namespace, name})
+          if (item !== undefined) {
+            Vue.set(item, 'dashboardData.notFound', true)
+          }
+          return
+        }
+        throw error
+      })
   },
   create ({ dispatch, commit, rootState }, data) {
     const namespace = data.metadata.namespace || rootState.namespace
@@ -298,6 +309,20 @@ const putItem = (state, newItem) => {
   }
 }
 
+const deleteItem = (state, rootState, deletedItem) => {
+  const item = findItem(deletedItem.metadata)
+  let sortRequired = false
+  if (item !== undefined) {
+    if (rootState.namespace === '_all' && rootState.onlyShootsWithIssues) {
+      Vue.set(item, 'dashboardData.stale', true)
+    } else {
+      delete state.shoots[keyForShoot(item.metadata)]
+      sortRequired = true
+    }
+  }
+  return sortRequired
+}
+
 // mutations
 const mutations = {
   RECEIVE_INFO (state, { namespace, name, info }) {
@@ -320,26 +345,38 @@ const mutations = {
       setSortedItems(state)
     }
   },
-  ITEMS_PUT (state, newItems) {
+  REMOVE_FROM_STORE (state, {deletedItem, rootState}) {
+    const item = findItem(deletedItem.metadata)
+    if (item !== undefined) {
+      delete state.shoots[keyForShoot(item.metadata)]
+      setSortedItems(state)
+    }
+  },
+  HANDLE_EVENTS (state, {rootState, events}) {
     let sortRequired = false
-    forEach(newItems, newItem => {
-      if (putItem(state, newItem)) {
-        sortRequired = true
+    forEach(events, event => {
+      switch (event.type) {
+        case 'ADDED':
+        case 'MODIFIED':
+         // eslint-disable-next-line lodash/path-style
+          if (rootState.namespace !== '_all' || rootState.onlyShootsWithIssues === !!get(event.object, ['metadata', 'labels', 'shoot.garden.sapcloud.io/unhealthy'])) {
+            // Do not add healthy shoots when onlyShootsWithIssues=true, this can happen when toggeling flag
+            if (putItem(state, event.object)) {
+              sortRequired = true
+            }
+          }
+          break
+        case 'DELETED':
+          if (deleteItem(state, rootState, event.object)) {
+            sortRequired = true
+          }
+          break
+        default:
+          console.error('undhandled event type', event.type)
       }
     })
     if (sortRequired) {
       setSortedItems(state)
-    }
-  },
-  ITEM_DEL (state, {deletedItem, rootState}) {
-    const item = findItem(deletedItem.metadata)
-    if (item !== undefined) {
-      if (rootState.namespace === '_all' && rootState.onlyShootsWithIssues) {
-        Vue.set(item, 'dashboardData.stale', true)
-      } else {
-        delete state.shoots[keyForShoot(item.metadata)]
-        setSortedItems(state)
-      }
     }
   },
   CLEAR_ALL (state) {
