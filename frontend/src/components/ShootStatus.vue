@@ -15,37 +15,48 @@ limitations under the License.
 -->
 
 <template>
-  <g-popper :title="popperTitle" :time="operation.lastUpdateTime" toolbarColor="cyan darken-2" :popperKey="popperKeyWithType">
-    <div slot="popperRef">
+  <g-popper :title="popperTitle" :time="operation.lastUpdateTime" :toolbarColor="color" :popperKey="popperKeyWithType">
+    <div slot="popperRef" style="display: inline-block;">
       <v-tooltip top>
         <template slot="activator">
-          <v-progress-circular v-if="showProgress && !isError" class="cursor-pointer progress-circular" :size="27" :width="3" :value="operation.progress" color="cyan darken-2" :rotate="-90">{{operation.progress}}</v-progress-circular>
-          <v-progress-circular v-else-if="showProgress" class="cursor-pointer progress-circular-error" :size="27" :width="3" :value="operation.progress" color="error" :rotate="-90">
+          <v-progress-circular v-if="showProgress && !isError" class="cursor-pointer progress-circular" :size="27" :width="3" :value="operation.progress" :color="color" :rotate="-90">{{operation.progress}}</v-progress-circular>
+          <v-progress-circular v-else-if="showProgress" class="cursor-pointer progress-circular-error" :size="27" :width="3" :value="operation.progress" :color="color" :rotate="-90">
             <v-icon v-if="isUserError" class="cursor-pointer progress-icon" color="error">mdi-account-alert</v-icon>
             <template v-else>
               !
             </template>
           </v-progress-circular>
-          <v-icon v-else-if="isUserError" class="cursor-pointer status-icon" color="error">mdi-account-alert</v-icon>
-          <v-icon v-else-if="isError" class="cursor-pointer status-icon" color="error">mdi-alert-outline</v-icon>
-          <v-progress-circular v-else-if="operationState==='Pending'" class="cursor-pointer" :size="27" :width="3" indeterminate color="cyan darken-2"></v-progress-circular>
-          <v-icon v-else-if="isHibernated" class="cursor-pointer status-icon" color="cyan darken-2">mdi-sleep</v-icon>
+          <v-icon v-else-if="reconciliationDeactivated" class="cursor-pointer block-icon" :color="color">mdi-block-helper</v-icon>
+          <v-icon v-else-if="isUserError" class="cursor-pointer status-icon" :color="color">mdi-account-alert</v-icon>
+          <v-icon v-else-if="isError" class="cursor-pointer status-icon" :color="color">mdi-alert-outline</v-icon>
+          <v-progress-circular v-else-if="operationState==='Pending'" class="cursor-pointer" :size="27" :width="3" indeterminate :color="color"></v-progress-circular>
+          <v-icon v-else-if="isHibernated" class="cursor-pointer status-icon" :color="color">mdi-sleep</v-icon>
           <v-icon v-else class="cursor-pointer status-icon" color="success">mdi-check-circle-outline</v-icon>
         </template>
-        <span>{{ tooltipText }}</span>
+        <div>{{ tooltipText }}</div>
       </v-tooltip>
     </div>
     <template slot="content-after">
       <pre v-if="!!popperMessage" class="alert-message">{{ popperMessage }}</pre>
       <template v-if="isError">
         <v-divider class="my-2"></v-divider>
-        <h3 class="error--text text-xs-left">Last Error</h3>
+        <h4 class="error--text text-xs-left">Last Error</h4>
         <template v-for="errorCodeDescription in errorCodeDescriptions">
-          <h4 class="error--text text-xs-left">{{errorCodeDescription}}</h4>
+          <h3 class="error--text text-xs-left">{{errorCodeDescription}}</h3>
         </template>
         <pre class="alert-message error--text" color="error">{{ lastErrorDescription }}</pre>
       </template>
-  </template>
+    </template>
+    <v-toolbar slot="toolbar" v-if="canRetry" flat color="white" dense>
+      <v-spacer></v-spacer>
+      <v-tooltip top>
+        <v-btn slot="activator" flat class="cyan--text text--darken-2" @click="retry">
+          Retry
+          <v-icon>mdi-reload</v-icon>
+        </v-btn>
+        Retry Operation
+      </v-tooltip>
+    </v-toolbar>
   </g-popper>
 </template>
 
@@ -53,7 +64,27 @@ limitations under the License.
   import GPopper from '@/components/GPopper'
   import get from 'lodash/get'
   import map from 'lodash/map'
+  import join from 'lodash/join'
   import { isUserError } from '@/utils'
+
+  const errorCodes = {
+    'ERR_INFRA_UNAUTHORIZED': {
+      shortDescription: 'Invalid Credentials',
+      description: 'Invalid cloud provider credentials.'
+    },
+    'ERR_INFRA_INSUFFICIENT_PRIVILEGES': {
+      shortDescription: 'Insufficient Privileges',
+      description: 'Cloud provider credentials have insufficient privileges.'
+    },
+    'ERR_INFRA_QUOTA_EXCEEDED': {
+      shortDescription: 'Quota Exceeded',
+      description: 'Cloud provider quota exceeded. Please request limit increases.'
+    },
+    'ERR_INFRA_DEPENDENCIES': {
+      shortDescription: 'Infrastructure Dependencies',
+      description: 'Infrastructure operation failed as unmanaged resources exist in your cloud provider account. Please delete all manually created resources related to this Shoot.'
+    }
+  }
 
   export default {
     components: {
@@ -75,6 +106,14 @@ limitations under the License.
       isHibernated: {
         type: Boolean,
         default: false
+      },
+      canRetry: {
+        type: Boolean,
+        default: false
+      },
+      reconciliationDeactivated: {
+        type: Boolean,
+        default: false
       }
     },
     computed: {
@@ -94,27 +133,10 @@ limitations under the License.
         return get(this.lastError, 'codes', [])
       },
       errorCodeDescriptions () {
-        const errorCodeDescriptions = map(this.errorCodes, code => {
-          let description
-          switch (code) {
-            case 'ERR_INFRA_UNAUTHORIZED':
-              description = 'Invalid cloud provider credentials.'
-              break
-            case 'ERR_INFRA_INSUFFICIENT_PRIVILEGES':
-              description = 'Cloud provider credentials have insufficient privileges.'
-              break
-            case 'ERR_INFRA_QUOTA_EXCEEDED':
-              description = 'Cloud provider quota exceeded. Please request limit increases.'
-              break
-            case 'ERR_INFRA_DEPENDENCIES':
-              description = 'Infrastructure operation failed as unmanaged resources exist in your cloud provider account. Please delete all manually created resources related to this Shoot.'
-              break
-            default:
-              description = code
-          }
-          return description
-        })
-        return errorCodeDescriptions
+        return map(this.errorCodes, code => get(errorCodes, `${code}.description`, code))
+      },
+      errorCodeShortDescriptions () {
+        return map(this.errorCodes, code => get(errorCodes, `${code}.shortDescription`, code))
       },
       popperKeyWithType () {
         return `shootStatus_${this.popperKey}`
@@ -124,10 +146,20 @@ limitations under the License.
         if (this.isHibernated) {
           popperTitle = popperTitle.concat('Hibernated; ')
         }
+        if (this.reconciliationDeactivated) {
+          return popperTitle.concat('Reconciliation Deactivated')
+        }
         return popperTitle.concat(`${this.operationType} ${this.operationState}`)
       },
       tooltipText () {
-        return this.showProgress ? `${this.popperTitle} (${this.operation.progress}%)` : this.popperTitle
+        let tooltipText = this.popperTitle
+        if (this.showProgress) {
+          tooltipText = tooltipText.concat(` (${this.operation.progress}%)`)
+        }
+        if (this.isUserError) {
+          tooltipText = tooltipText.concat(`; ${join(this.errorCodeShortDescriptions, ', ')}`)
+        }
+        return tooltipText
       },
       popperMessage () {
         let message = this.operation.description
@@ -142,6 +174,18 @@ limitations under the License.
       },
       operationState () {
         return this.operation.state || 'Pending'
+      },
+      color () {
+        if (this.isError) {
+          return 'error'
+        } else {
+          return 'cyan darken-2'
+        }
+      }
+    },
+    methods: {
+      retry () {
+        this.$emit('retryOperation')
       }
     }
   }
@@ -175,6 +219,10 @@ limitations under the License.
 
   .status-icon {
     font-size: 2em;
+  }
+
+  .block-icon {
+    font-size: 1.8em;
   }
 
   .alert-message {

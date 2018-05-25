@@ -20,9 +20,11 @@ const _ = require('lodash')
 const logger = require('../logger')
 
 class AbstractBatchEmitter {
-  constructor (kind, socket) {
+  constructor ({kind, socket, objectKeyPath = undefined, eventsKind}) {
+    this.eventsKind = eventsKind
     this.kind = kind
     this.socket = socket
+    this.objectKeyPath = objectKeyPath
     this.clearData()
 
     this.MAX_CHUNK_SIZE = 50
@@ -33,17 +35,27 @@ class AbstractBatchEmitter {
     this.flush()
   }
   batchEmitObjects (objects) {
-    _.forEach(_.chunk(objects, this.MAX_CHUNK_SIZE), (chunkedObjects) => {
-      this.appendChunk(chunkedObjects)
-      if (this.count() >= this.MIN_CHUNK_SIZE) {
-        this.socket.emit('batchEvent', {kind: this.kind, type: 'ADDED', data: this.chunk})
-        this.clearData()
-      }
-    })
+    _
+      .chain(objects)
+      .map(object => {
+        const event = {type: 'ADDED', object}
+        if (this.objectKeyPath) {
+          event.objectKey = _.get(object, this.objectKeyPath) // objectKey used for throttling events on frontend (discard previous events for one batch for same objectKey)
+        }
+        return event
+      })
+      .chunk(this.MAX_CHUNK_SIZE)
+      .forEach(chunkedEvents => {
+        this.appendChunkedEvents(chunkedEvents)
+        if (this.count() >= this.MIN_CHUNK_SIZE) {
+          this.emit()
+          this.clearData()
+        }
+      }).value()
   }
   flush () {
     if (this.count() !== 0) {
-      this.socket.emit('batchEvent', {kind: this.kind, type: 'ADDED', data: this.chunk})
+      this.emit()
     }
     logger.debug('Emitted %s batch events to socket %s', this.kind, this.socket.id)
   }
@@ -51,10 +63,13 @@ class AbstractBatchEmitter {
   /**
    * abstract methods
    */
+  emit () {
+    throw new Error('You have to implement the method!')
+  }
   count () {
     throw new Error('You have to implement the method!')
   }
-  appendChunk (chunkedObjects) {
+  appendChunkedEvents (chunkedEvents) {
     throw new Error('You have to implement the method!')
   }
   clearData () {
@@ -62,35 +77,50 @@ class AbstractBatchEmitter {
   }
 }
 
-class ArrayBatchEmitter extends AbstractBatchEmitter {
-  count () {
-    return _.size(this.chunk)
+class EventsEmitter extends AbstractBatchEmitter {
+  constructor ({kind, socket, objectKeyPath = undefined}) {
+    super({kind, socket, objectKeyPath, eventsKind: 'events'})
   }
-  appendChunk (chunkedObjects) {
-    this.chunk = _.concat(this.chunk, chunkedObjects)
+
+  emit () {
+    this.socket.emit(this.eventsKind, {kind: this.kind, events: this.events})
+  }
+  count () {
+    return _.size(this.events)
+  }
+  appendChunkedEvents (chunkedEvents) {
+    this.events = _.concat(this.events, chunkedEvents)
   }
   clearData () {
-    this.chunk = []
+    this.events = []
   }
 }
 
 class NamespacedBatchEmitter extends AbstractBatchEmitter {
+  constructor ({kind, socket, objectKeyPath = undefined}) {
+    super({kind, socket, objectKeyPath, eventsKind: 'namespacedEvents'})
+  }
+
   batchEmitObjects (objects, namespace) {
     this.currentBatchNamespace = namespace
     super.batchEmitObjects(objects)
   }
-  count () {
-    return _.chain(this.chunk).map(objects => objects.length).sum().value()
+
+  emit () {
+    this.socket.emit(this.eventsKind, {kind: this.kind, namespaces: this.namespaces})
   }
-  appendChunk (chunkedObjects) {
-    this.chunk[this.currentBatchNamespace] = chunkedObjects
+  count () {
+    return _.chain(this.namespaces).map(events => events.length).sum().value()
+  }
+  appendChunkedEvents (chunkedEvents) {
+    this.namespaces[this.currentBatchNamespace] = _.concat(_.get(this.namespaces, this.currentBatchNamespace, []), chunkedEvents)
   }
   clearData () {
-    this.chunk = {}
+    this.namespaces = {}
   }
 }
 
 module.exports = {
-  ArrayBatchEmitter,
+  EventsEmitter,
   NamespacedBatchEmitter
 }

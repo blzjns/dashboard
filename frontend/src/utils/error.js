@@ -16,18 +16,17 @@
 
 'use strict'
 
-import get from 'lodash/get'
-
 export function isConflict (error) {
-  return underlyingKubernetesErrorHasStatusCode(409, error)
+  return hasStatusCode(409, error)
 }
 
 export function isNotFound (error) {
-  return underlyingKubernetesErrorHasStatusCode(404, error)
+  return hasStatusCode(404, error)
 }
 
-function underlyingKubernetesErrorHasStatusCode (statusCode, error) {
-  if (get(error, 'response.data.error.code') === statusCode) {
+function hasStatusCode (statusCode, error) {
+  const response = error.response || {}
+  if (response.status === statusCode) {
     return true
   } else {
     return false

@@ -23,7 +23,7 @@ limitations under the License.
           <div class="headline">Kubernetes Clusters</div>
         </v-toolbar-title>
         <v-spacer></v-spacer>
-        <v-text-field v-if="items.length > 3"
+        <v-text-field v-if="search || items.length > 3"
           prepend-icon="search"
           color="cyan darken-2"
           label="Search"
@@ -73,7 +73,7 @@ limitations under the License.
       </v-alert>
       <v-data-table class="shootListTable" :headers="visibleHeaders" :items="items" :search="search" :pagination.sync="pagination" :total-items="items.length" hide-actions must-sort :loading="shootsLoading">
         <template slot="items" slot-scope="props">
-          <shoot-list-row :shootItem="props.item" :visibleHeaders="visibleHeaders" @showDialog="showDialog"></shoot-list-row>
+          <shoot-list-row :shootItem="props.item" :visibleHeaders="visibleHeaders" @showDialog="showDialog" :key="props.item.metadata.uid"></shoot-list-row>
         </template>
       </v-data-table>
       <cluster-deleted-dialog :value="selectedDeletedShootDialog" @confirmed="onConfirmDeletedShoot"></cluster-deleted-dialog>
@@ -103,7 +103,14 @@ limitations under the License.
           <cluster-access ref="clusterAccess" :info="currentInfo" textColorClass="cyan--text text--darken-2"></cluster-access>
         </v-card>
       </v-dialog>
-      <confirm-input-dialog :confirm="currentName" v-model="deleteDialog" :cancel="hideDialog" :ok="deletionConfirmed">
+      <confirm-input-dialog
+        :confirm="currentName"
+        v-model="deleteDialog"
+        :cancel="hideDialog"
+        :ok="deletionConfirmed"
+        :errorMessage.sync="deleteErrorMessage"
+        :detailedErrorMessage.sync="deleteDetailedErrorMessage"
+        >
         <template slot="caption">Delete Cluster <code>{{currentName}}</code></template>
         <template slot="message">
           <v-list>
@@ -117,7 +124,7 @@ limitations under the License.
             </v-list-tile-content>
           </v-list>
           <br />
-          Type <b>{{currentName}}</b> below and confirm the deletion of the cluster and all of its content?
+          Type <b>{{currentName}}</b> below and confirm the deletion of the cluster and all of its content.
           <br/>
           <i class="red--text text--darken-2">This action cannot be undone.</i>
         </template>
@@ -167,38 +174,49 @@ limitations under the License.
           { text: 'CREATED BY', value: 'createdBy', align: 'left', checked: false, defaultChecked: false, hidden: false },
           { text: 'CREATED AT', value: 'createdAt', align: 'left', checked: false, defaultChecked: false, hidden: false },
           { text: 'PURPOSE', value: 'purpose', align: 'center', checked: false, defaultChecked: false, hidden: false },
-          { text: 'STATUS', value: 'lastOperation', align: 'center', checked: false, defaultChecked: true, hidden: false },
+          { text: 'STATUS', value: 'lastOperation', align: 'left', checked: false, defaultChecked: true, hidden: false },
           { text: 'VERSION', value: 'k8sVersion', align: 'center', checked: false, defaultChecked: false, hidden: false },
           { text: 'READINESS', value: 'readiness', sortable: false, align: 'center', checked: false, defaultChecked: true, hidden: false },
-          { text: 'JOURNAL', value: 'journal', sortable: false, align: 'left', checked: false, defaultChecked: false, hidden: false },
+          { text: 'JOURNAL', value: 'journal', sortable: false, align: 'left', checked: false, defaultChecked: false, hidden: false, adminOnly: true },
+          { text: 'JOURNAL LABELS', value: 'journalLabels', sortable: false, align: 'left', checked: false, defaultChecked: true, hidden: false, adminOnly: true },
           { text: 'ACTIONS', value: 'actions', sortable: false, align: 'right', checked: false, defaultChecked: true, hidden: false }
         ],
         dialog: null,
         tableMenu: false,
-        pagination: this.$localStorage.getObject('dataTable_sortBy') || { rowsPerPage: Number.MAX_SAFE_INTEGER }
+        pagination: this.$localStorage.getObject('dataTable_sortBy') || { rowsPerPage: Number.MAX_SAFE_INTEGER },
+        deleteErrorMessage: null,
+        deleteDetailedErrorMessage: null
       }
     },
     watch: {
       pagination (value) {
         if (value) {
           this.$localStorage.setObject('dataTable_sortBy', {sortBy: value.sortBy, descending: value.descending, rowsPerPage: Number.MAX_SAFE_INTEGER})
-          this.setShootSortPrams(value)
+          this.setShootListSortParams(value)
         }
+      },
+      search (value) {
+        this.setShootListSearchValue(value)
       }
     },
     methods: {
       ...mapActions([
         'deleteShoot',
         'setSelectedShoot',
-        'setShootSortPrams',
+        'setShootListSortParams',
+        'setShootListSearchValue',
         'setOnlyShootsWithIssues',
         'clearStaleShoots',
         'removeShootFromStore'
       ]),
       deletionConfirmed () {
         this.deleteShoot({name: this.currentName, namespace: this.currentNamespace})
-          .catch((err) => console.error('Delete shoot failed with error:', err))
           .then(() => this.hideDialog())
+          .catch((err) => {
+            this.deleteErrorMessage = 'Delete shoot failed'
+            this.deleteDetailedErrorMessage = err.message
+            console.error('Delete shoot failed with error:', err)
+          })
       },
       showDialog (args) {
         switch (args.action) {
@@ -219,6 +237,9 @@ limitations under the License.
           case 'dashboard':
             this.$refs.clusterAccess.reset()
             break
+          case 'delete':
+            this.deleteErrorMessage = null
+            this.deleteDetailedErrorMessage = null
         }
         this.dialog = null
         this.setSelectedShoot(null)

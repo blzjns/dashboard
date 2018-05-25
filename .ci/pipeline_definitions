@@ -1,0 +1,44 @@
+dashboard:
+  template: 'default'
+  base_definition:
+    repo: ~
+    traits:
+      version:
+        preprocess:
+          'inject-commit-hash'
+      publish:
+        dockerimages:
+          dashboard:
+            inputs:
+              repos:
+                source: ~ # default
+              steps:
+                build: ~
+            registry: 'gcr-readwrite'
+            image: 'eu.gcr.io/gardener-project/gardener/dashboard'
+    steps:
+      build:
+        image: &node_image 'eu.gcr.io/gardener-project/gardener/node-test-image:1.0.0'
+        output_dir: 'binary'
+      test:
+        image: *node_image
+  variants:
+    head-update: ~
+    pull-request:
+      traits:
+        pull-request: ~
+    release:
+      traits:
+        version:
+          preprocess: 'finalise'
+          inject_effective_version: true
+        release:
+          nextversion: 'bump_minor'
+      steps:
+        prepare_release:
+          image: *node_image
+          publish_to: ['source']
+          depends: ['test']
+        build:
+          depends: ['prepare_release']
+

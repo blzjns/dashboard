@@ -208,7 +208,7 @@ This project may include APIs to SAP or third party products or services. The us
 
 ## Subcomponents
 
-This project includes the following subcomponents that are subject to separate license terms. 
+This project includes the following subcomponents that are subject to separate license terms.
 Your use of these subcomponents is subject to the separate license terms applicable to
 each subcomponent.
 
@@ -243,6 +243,10 @@ Copyright (c) 2010 Sencha Inc.
 Copyright (c) 2011 TJ Holowaychuk <tj@vision-media.ca>   
 Copyright (c) 2014-2015 Douglas Christopher Wilson <doug@somethingdoug.com>   
 [MIT License](https://github.com/expressjs/session/blob/master/LICENSE)   
+
+[helmet](https://github.com/helmetjs/helmet)   
+Copyright (c) 2012-2018 Evan Hahn, Adam Baldwin  
+[MIT License](https://github.com/helmetjs/helmet/blob/master/LICENSE) 
 
 [js-yaml](https://github.com/nodeca/js-yaml)   
 Copyright (C) 2011-2015 by Vitaly Puzrin   
@@ -352,6 +356,10 @@ Copyright (c) 2014 Guillermo Rauch
 Copyright (c) 2013-present, Yuxi (Evan) You   
 [MIT License](https://github.com/vuejs/vue/blob/dev/LICENSE)
 
+[vue-codemirror](https://github.com/surmon-china/vue-codemirror)
+Copyright (c) 2016 Simon Babay  
+[MIT License](https://github.com/surmon-china/vue-codemirror/blob/master/LICENSE)
+
 [vue-popperjs](https://github.com/RobinCK/vue-popper)   
 Copyright (c) 2017 Igor Ognichenko   
 [MIT License](https://github.com/RobinCK/vue-popper/blob/master/LICENSE)
@@ -456,7 +464,7 @@ Copyright (c) 2015 José F. Romaniello
 
     The OFL allows the licensed fonts to be used, studied, modified and
     redistributed freely as long as they are not sold by themselves. The
-    fonts, including any derivative works, can be bundled, embedded, 
+    fonts, including any derivative works, can be bundled, embedded,
     redistributed and/or sold with any software provided that any reserved
     names are not used by derivative works. The fonts and derivatives,
     however, cannot be released under any other type of license. The

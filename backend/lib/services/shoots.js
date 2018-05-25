@@ -51,8 +51,41 @@ exports.read = async function ({user, namespace, name}) {
   return Garden(user).namespaces(namespace).shoots.get({name})
 }
 
-function patch ({user, namespace, name, body}) {
+const patch = exports.patch = async function ({user, namespace, name, body}) {
   return Garden(user).namespaces(namespace).shoots.mergePatch({name, body})
+}
+
+exports.replaceSpec = async function ({user, namespace, name, body}) {
+  const spec = body.spec || body
+  const patchOperations = [
+    {
+      op: 'replace',
+      path: '/spec',
+      value: spec
+    }
+  ]
+  return Garden(user).namespaces(namespace).shoots.jsonPatch({name, body: patchOperations})
+}
+
+exports.replaceVersion = async function ({user, namespace, name, body}) {
+  const version = body.version
+  const patchOperations = [
+    {
+      op: 'replace',
+      path: '/spec/kubernetes/version',
+      value: version
+    }
+  ]
+  return Garden(user).namespaces(namespace).shoots.jsonPatch({name, body: patchOperations})
+}
+
+exports.patchAnnotation = async function ({user, namespace, name, annotations}) {
+  const body = {
+    metadata: {
+      annotations: annotations
+    }
+  }
+  return patch({user, namespace, name, body})
 }
 
 exports.remove = async function ({user, namespace, name}) {

@@ -1,6 +1,6 @@
 {
   "name": "@gardener-dashboard/frontend",
-  "version": "1.0.0-alpha.0",
+  "version": "1.10.0",
   "description": "Gardener Dashboard Client",
   "license": "Apache-2.0",
   "repository": {
@@ -28,6 +28,7 @@
     "babel-polyfill": "^6.26.0",
     "clipboard": "^2.0.0",
     "component-emitter": "^1.2.1",
+    "get-contrast": "^2.0.0",
     "highlight.js": "^9.12.0",
     "js-yaml": "^3.11.0",
     "jwt-decode": "^2.2.0",
@@ -41,10 +42,12 @@
     "semver-sort": "0.0.4",
     "socket.io-client": "^2.1.0",
     "vue": "^2.5.16",
+    "vue-codemirror": "^4.0.5",
+    "vue-lazyload": "^1.2.3",
     "vue-popperjs": "^1.2.6",
     "vue-router": "^3.0.1",
     "vuelidate": "^0.6.2",
-    "vuetify": "^1.0.13",
+    "vuetify": "^1.0.16",
     "vuex": "^3.0.1"
   },
   "devDependencies": {

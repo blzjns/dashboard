@@ -60,6 +60,7 @@ const state = {
   user: null,
   loading: false,
   error: null,
+  alert: null,
   shootsLoading: false
 }
 
@@ -112,6 +113,11 @@ const getters = {
   },
   infrastructureSecretList (state) {
     return state.infrastructureSecrets.all
+  },
+  getInfrastructureSecretByName (state, getters) {
+    return ({namespace, name}) => {
+      return getters['infrastructureSecrets/getInfrastructureSecretByName']({namespace, name})
+    }
   },
   namespaces (state) {
     const iteratee = item => item.metadata.namespace
@@ -180,6 +186,11 @@ const getters = {
       return getters['journals/lastUpdated']({namespace, name})
     }
   },
+  journalsLabels (state, getters) {
+    return ({namespace, name}) => {
+      return getters['journals/labels']({namespace, name})
+    }
+  },
   shootsByInfrastructureSecret (state, getters) {
     return (secretName) => {
       const predicate = item => {
@@ -208,6 +219,12 @@ const getters = {
   },
   errorMessage () {
     return get(state, 'error.message', '')
+  },
+  alertMessage () {
+    return get(state, 'alert.message', '')
+  },
+  alertType () {
+    return get(state, 'alert.type', 'error')
   },
   isCurrentNamespace (state, getters) {
     return (namespace) => {
@@ -293,8 +310,14 @@ const actions = {
         dispatch('setError', err)
       })
   },
-  setShootSortPrams ({ dispatch }, sortParams) {
-    return dispatch('shoots/setSortParams', sortParams)
+  setShootListSortParams ({ dispatch }, sortParams) {
+    return dispatch('shoots/setListSortParams', sortParams)
+      .catch(err => {
+        dispatch('setError', err)
+      })
+  },
+  setShootListSearchValue ({ dispatch }, searchValue) {
+    return dispatch('shoots/setListSearchValue', searchValue)
       .catch(err => {
         dispatch('setError', err)
       })
@@ -334,9 +357,6 @@ const actions = {
   },
   deleteShoot ({ dispatch, commit }, {name, namespace}) {
     return dispatch('shoots/delete', {name, namespace})
-      .catch(err => {
-        dispatch('setError', err)
-      })
   },
   removeShootFromStore ({ commit, getters }, shoot) {
     commit('shoots/REMOVE_FROM_STORE', {deletedItem: shoot, rootState: state})
@@ -356,6 +376,11 @@ const actions = {
   },
   setConfiguration ({ commit }, value) {
     commit('SET_CONFIGURATION', value)
+
+    if (get(value, 'alert')) {
+      commit('SET_ALERT', get(value, 'alert'))
+    }
+
     return state.cfg
   },
   setNamespace ({ commit }, value) {
@@ -404,6 +429,10 @@ const actions = {
   setError ({ commit }, value) {
     commit('SET_ERROR', value)
     return state.error
+  },
+  setAlert ({ commit }, value) {
+    commit('SET_ALERT', value)
+    return state.alert
   }
 }
 
@@ -440,6 +469,9 @@ const mutations = {
   },
   SET_ERROR (state, value) {
     state.error = value
+  },
+  SET_ALERT (state, value) {
+    state.alert = value
   }
 }
 

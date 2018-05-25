@@ -27,6 +27,9 @@ import isObject from 'lodash/isObject'
 import orderBy from 'lodash/orderBy'
 import toLower from 'lodash/toLower'
 import padStart from 'lodash/padStart'
+import filter from 'lodash/filter'
+import includes from 'lodash/includes'
+import split from 'lodash/split'
 import { getShoot, getShootInfo, createShoot, deleteShoot } from '@/utils/api'
 import { isNotFound } from '@/utils/error'
 import { availableK8sUpdatesForShoot, isHibernated, getCloudProviderKind, isUserError } from '@/utils'
@@ -46,12 +49,25 @@ const state = {
   shoots: {},
   sortedShoots: [],
   sortParams: undefined,
+  searchValue: undefined,
   selection: undefined
 }
 
 // getters
 const getters = {
   sortedItems (state) {
+    if (state.searchValue) {
+      const predicate = item => {
+        let found = true
+        forEach(state.searchValue, value => {
+          if (!includes(item.metadata.name, value)) {
+            found = false
+          }
+        })
+        return found
+      }
+      return filter(state.sortedShoots, predicate)
+    }
     return state.sortedShoots
   },
   itemByNameAndNamespace () {
@@ -170,9 +186,14 @@ const actions = {
       }
     }
   },
-  setSortParams ({ commit }, sortParams) {
+  setListSortParams ({ commit }, sortParams) {
     if (!isEqual(sortParams, state.sortParams)) {
       commit('SET_SORTPARAMS', pick(sortParams, ['sortBy', 'descending']))
+    }
+  },
+  setListSearchValue ({ commit }, searchValue) {
+    if (!isEqual(searchValue, state.searchValue)) {
+      commit('SET_SEARCHVALUE', searchValue)
     }
   }
 }
@@ -233,8 +254,16 @@ const getSortVal = (item, sortBy) => {
       const inProgress = operation.progress !== 100 && operation.state !== 'Failed' && !!operation.progress
       const isError = operation.state === 'Failed' || get(item, 'status.lastError')
       const userError = isUserError(get(item, 'status.lastError.codes', []))
+      // eslint-disable-next-line
+      const ignoredFromReconciliation = get(item, ['metadata', 'annotations', 'shoot.garden.sapcloud.io/ignore']) === 'true'
 
-      if (userError && !inProgress) {
+      if (ignoredFromReconciliation) {
+        if (isError) {
+          return 400
+        } else {
+          return 450
+        }
+      } else if (userError && !inProgress) {
         return 200
       } else if (userError && inProgress) {
         const progress = padStart(operation.progress, 2, '0')
@@ -246,11 +275,11 @@ const getSortVal = (item, sortBy) => {
         return `1${progress}`
       } else if (inProgress) {
         const progress = padStart(operation.progress, 2, '0')
-        return `5${progress}`
+        return `6${progress}`
       } else if (isHibernated(spec)) {
-        return 400
+        return 500
       }
-      return 600
+      return 700
     case 'k8sVersion':
       const k8sVersion = value
       const availableK8sUpdates = availableK8sUpdatesForShoot(spec)
@@ -338,6 +367,14 @@ const mutations = {
     state.sortParams = sortParams
     setSortedItems(state)
   },
+  SET_SEARCHVALUE (state, searchValue) {
+    if (searchValue && searchValue.length > 0) {
+      state.searchValue = split(searchValue, ' ')
+    } else {
+      state.searchValue = undefined
+    }
+    setSortedItems(state)
+  },
   ITEM_PUT (state, newItem) {
     const sortRequired = putItem(state, newItem)
 
@@ -373,6 +410,15 @@ const mutations = {
           break
         default:
           console.error('undhandled event type', event.type)
+          if (rootState.namespace !== '_all' ||
+            !rootState.onlyShootsWithIssues ||
+            // eslint-disable-next-line lodash/path-style
+            rootState.onlyShootsWithIssues === !!get(event.object, ['metadata', 'labels', 'shoot.garden.sapcloud.io/unhealthy'])) {
+            // Do not add healthy shoots when onlyShootsWithIssues=true, this can happen when toggeling flag
+            if (putItem(state, event.object)) {
+              sortRequired = true
+            }
+          }
       }
     })
     if (sortRequired) {

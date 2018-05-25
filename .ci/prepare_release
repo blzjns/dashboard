@@ -1,0 +1,41 @@
+#!/usr/bin/env sh
+
+set -e
+
+if [ -z "$SOURCE_PATH" ]; then
+  export SOURCE_PATH="$(readlink -f $(dirname ${0})/..)"
+else
+  export SOURCE_PATH="$(readlink -f "${SOURCE_PATH}")"
+fi
+
+# not every environment has pushd
+old_pwd=$PWD
+cd "${SOURCE_PATH}"
+
+version="$(cat "${SOURCE_PATH}/VERSION")"
+if [ -z "$version" ]
+then
+  echo "Version not found"
+  exit 1
+fi
+
+# revert changes VERSION
+git checkout "${SOURCE_PATH}/VERSION"
+
+# print environment
+env
+
+# bump backend version
+sed -i -r "s/\"version\": *\".+\"/\"version\": \"$version\"/g" "${SOURCE_PATH}/backend/package.json"
+npm i --prefix "${SOURCE_PATH}/backend"
+git add "${SOURCE_PATH}/backend/package.json"
+git add "${SOURCE_PATH}/backend/package-lock.json"
+# bump frontend version
+sed -i -r "s/\"version\": *\".+\"/\"version\": \"$version\"/g" "${SOURCE_PATH}/frontend/package.json"
+npm i --prefix "${SOURCE_PATH}/frontend"
+git add "${SOURCE_PATH}/frontend/package.json"
+git add "${SOURCE_PATH}/frontend/package-lock.json"
+# commit changes
+git commit -m "Update frontend & backend to version $version [skip ci]"
+
+cd "${old_pwd}"

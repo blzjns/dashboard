@@ -15,212 +15,242 @@ limitations under the License.
  -->
 
 <template>
-  <div>
-    <cluster-deleted-dialog :value="isDeletedShoot" @confirmed="onConfirmDeletedShoot"></cluster-deleted-dialog>
+<div>
+  <cluster-deleted-dialog :value="isDeletedShoot" @confirmed="onConfirmDeletedShoot"></cluster-deleted-dialog>
+  <v-alert type="info" color="grey" :value="isStaleShoot">This Shoot previously had an issue which is now resolved. This is a snapshot of the last error state.</v-alert>
 
-    <v-alert type="info" color="grey" :value="isStaleShoot">This Shoot previously had an issue which is now resolved. This is a snapshot of the last error state.</v-alert>
+  <v-tabs fixed :scrollable="false" v-model="tab">
 
-    <v-tabs class="white" fixed :scrollable="false" v-model="tab">
+    <v-tabs-slider :color="colorClass"></v-tabs-slider>
 
-        <v-tabs-slider :color="colorClass"></v-tabs-slider>
+    <v-tab href="#formatted" ripple>
+      Overview
+    </v-tab>
 
-        <v-tab href="#formatted" ripple>
-          Overview
-        </v-tab>
+    <v-tab href="#yaml" ripple>
+      YAML
+    </v-tab>
 
-        <v-tab href="#yaml" ripple>
-          YAML
-        </v-tab>
+    <v-tab-item id="formatted" class="pt-2">
+      <v-container fluid grid-list-lg>
+        <v-layout d-flex wrap row>
+          <v-flex md6>
 
-      <v-tab-item id="formatted" class="pt-2">
-        <v-container fluid grid-list-lg>
-          <v-layout d-flex wrap row>
-            <v-flex md6>
+            <v-card :class="colorClass">
+              <v-card-title class="subheading white--text">
+                Details
+              </v-card-title>
+              <v-list>
 
-              <v-card :class="colorClass">
-                <v-card-title class="subheading white--text">
-                  Details
-                </v-card-title>
-                <v-list>
+                <v-list-tile>
+                  <v-list-tile-action>
+                    <v-icon :class="textColorClass">info_outline</v-icon>
+                  </v-list-tile-action>
+                  <v-list-tile-content>
+                    <v-list-tile-sub-title>Name</v-list-tile-sub-title>
+                    <v-list-tile-title>{{metadata.name}}</v-list-tile-title>
+                  </v-list-tile-content>
+                </v-list-tile>
 
-                  <v-list-tile>
-                    <v-list-tile-action>
-                      <v-icon :class="textColorClass">info_outline</v-icon>
-                    </v-list-tile-action>
-                    <v-list-tile-content>
-                      <v-list-tile-sub-title>Name</v-list-tile-sub-title>
-                      <v-list-tile-title>{{metadata.name}}</v-list-tile-title>
-                    </v-list-tile-content>
-                  </v-list-tile>
+                <v-list-tile>
+                  <v-list-tile-action>
+                  </v-list-tile-action>
+                  <v-list-tile-content>
+                    <v-list-tile-sub-title>Kubernetes Version</v-list-tile-sub-title>
+                  </v-list-tile-content>
+                  <v-list-tile-avatar>
+                    <shoot-version :k8sVersion="k8sVersion" :shootName="metadata.name" :shootNamespace="metadata.namespace" :availableK8sUpdates="availableK8sUpdates"></shoot-version>
+                  </v-list-tile-avatar>
+                </v-list-tile>
 
+                <v-divider class="my-2" inset></v-divider>
+                <v-list-tile>
+                  <v-list-tile-action>
+                    <v-icon :class="textColorClass">perm_identity</v-icon>
+                  </v-list-tile-action>
+                  <v-list-tile-content>
+                    <v-list-tile-sub-title>Created by</v-list-tile-sub-title>
+                    <v-list-tile-title><a :href="`mailto:${createdBy}`">{{createdBy}}</a></v-list-tile-title>
+                  </v-list-tile-content>
+                </v-list-tile>
+
+                <v-list-tile>
+                  <v-list-tile-action>
+                  </v-list-tile-action>
+                  <v-list-tile-content>
+                    <v-tooltip top>
+                      <template slot="activator">
+                        <v-list-tile-sub-title>Created at</v-list-tile-sub-title>
+                        <v-list-tile-title>{{created}}</v-list-tile-title>
+                      </template>
+                      <time-ago :dateTime="metadata.creationTimestamp"></time-ago>
+                    </v-tooltip>
+                  </v-list-tile-content>
+                </v-list-tile>
+
+                <template v-if="!!purpose">
                   <v-divider class="my-2" inset></v-divider>
                   <v-list-tile>
                     <v-list-tile-action>
-                      <v-icon :class="textColorClass">perm_identity</v-icon>
+                      <v-icon :class="textColorClass">label_outline</v-icon>
                     </v-list-tile-action>
                     <v-list-tile-content>
-                      <v-list-tile-sub-title>Created by</v-list-tile-sub-title>
-                      <v-list-tile-title><a :href="`mailto:${createdBy}`">{{createdBy}}</a></v-list-tile-title>
+                      <v-list-tile-sub-title>Purpose</v-list-tile-sub-title>
+                      <v-list-tile-title>{{purpose}}</v-list-tile-title>
                     </v-list-tile-content>
                   </v-list-tile>
+                </template>
 
-                  <v-list-tile>
-                    <v-list-tile-action>
-                    </v-list-tile-action>
-                    <v-list-tile-content>
-                      <v-tooltip top>
-                        <template slot="activator">
-                          <v-list-tile-sub-title>Created at</v-list-tile-sub-title>
-                          <v-list-tile-title>{{created}}</v-list-tile-title>
-                        </template>
-                        <time-ago :dateTime="metadata.creationTimestamp"></time-ago>
+              </v-list>
+            </v-card>
+
+            <v-card :class="colorClass" class="mt-3">
+              <v-card-title class="subheading white--text">
+                Infrastructure
+              </v-card-title>
+              <v-list>
+
+                <v-list-tile>
+                  <v-list-tile-action>
+                    <v-icon :class="textColorClass">cloud_queue</v-icon>
+                  </v-list-tile-action>
+                  <v-list-tile-content>
+                    <v-list-tile-sub-title>Provider</v-list-tile-sub-title>
+                    <v-list-tile-title>
+                      <v-tooltip top open-delay="500">
+                        <span slot="activator"> {{getCloudProviderKind}} </span>
+                        <span>Provider</span>
                       </v-tooltip>
-                    </v-list-tile-content>
-                  </v-list-tile>
+                      /
+                      <v-tooltip top open-delay="500">
+                        <span slot="activator"> {{region}} </span>
+                        <span>Region</span>
+                      </v-tooltip>
+                      /
+                      <v-tooltip top open-delay="500">
+                        <router-link slot="activator" :class="textColorClass" :to="{ name: 'Secret', params: { name: secret, namespace } }">
+                          <span>{{secret}} </span>
+                        </router-link>
+                        <span>Used Credential</span>
+                      </v-tooltip>
+                    </v-list-tile-title>
+                  </v-list-tile-content>
+                </v-list-tile>
 
-                  <template v-if="!!purpose">
-                    <v-divider class="my-2" inset></v-divider>
-                    <v-list-tile>
-                      <v-list-tile-action>
-                        <v-icon :class="textColorClass">label_outline</v-icon>
-                      </v-list-tile-action>
-                      <v-list-tile-content>
-                        <v-list-tile-sub-title>Purpose</v-list-tile-sub-title>
-                        <v-list-tile-title>{{purpose}}</v-list-tile-title>
-                      </v-list-tile-content>
-                    </v-list-tile>
-                  </template>
-
-                </v-list>
-              </v-card>
-
-              <v-card :class="colorClass" class="mt-3">
-                <v-card-title class="subheading white--text">
-                  Infrastructure
-                </v-card-title>
-                <v-list>
-
+                <template v-if="showSeedInfo">
+                  <v-divider class="my-2" inset></v-divider>
                   <v-list-tile>
                     <v-list-tile-action>
-                      <v-icon :class="textColorClass">cloud_queue</v-icon>
+                      <v-icon :class="textColorClass">spa</v-icon>
                     </v-list-tile-action>
                     <v-list-tile-content>
-                      <v-list-tile-sub-title>Provider</v-list-tile-sub-title>
+                      <v-list-tile-sub-title>Seed</v-list-tile-sub-title>
                       <v-list-tile-title>
-                        <v-tooltip top open-delay="500">
-                          <span slot="activator"> {{getCloudProviderKind}} </span>
-                          <span>Provider</span>
-                        </v-tooltip>
-                        /
-                        <v-tooltip top open-delay="500">
-                          <span slot="activator"> {{region}} </span>
-                          <span>Region</span>
-                        </v-tooltip>
-                        /
-                        <v-tooltip top open-delay="500">
-                          <span slot="activator">{{secret}} </span>
-                          <span>Used Credential</span>
-                        </v-tooltip>
+                        <router-link v-if="canLinkToSeed" :class="textClorClass" class="subheading" :to="{ name: 'ShootItem', params: { name: seed, namespace:'garden' } }">
+                          {{seed}}
+                        </router-link>
+                        <template v-else>
+                          {{seed}}
+                        </template>
                       </v-list-tile-title>
                     </v-list-tile-content>
                   </v-list-tile>
-
-                  <template v-if="showSeedInfo">
-                    <v-divider class="my-2" inset></v-divider>
-                    <v-list-tile>
-                      <v-list-tile-action>
-                        <v-icon :class="textColorClass">spa</v-icon>
-                      </v-list-tile-action>
-                      <v-list-tile-content>
-                        <v-list-tile-sub-title>Seed</v-list-tile-sub-title>
-                        <v-list-tile-title>
-                          <router-link v-if="canLinkToSeed" :class="textColorClass" class="subheading" :to="{ name: 'ShootItem', params: { name: seed, namespace:'garden' } }">
-                            {{seed}}
-                          </router-link>
-                          <template v-else>
-                            {{seed}}
-                          </template>
-                        </v-list-tile-title>
-                      </v-list-tile-content>
-                    </v-list-tile>
-                  </template>
-
-                  <v-divider class="my-2" inset></v-divider>
-                  <v-list-tile>
-                    <v-list-tile-action>
-                      <v-icon :class="textColorClass">settings_ethernet</v-icon>
-                    </v-list-tile-action>
-                    <v-list-tile-content>
-                      <v-list-tile-sub-title>CIDR</v-list-tile-sub-title>
-                      <v-list-tile-title>{{cidr}}</v-list-tile-title>
-                    </v-list-tile-content>
-                  </v-list-tile>
-
-                </v-list>
-              </v-card>
-
-              <v-card :class="colorClass" class="mt-3">
-                <v-card-title class="subheading white--text" >
-                  Addons provided by Gardener
-                </v-card-title>
-                <v-list>
-
-                  <v-list-tile avatar v-for="item in addonList" :key="item.name" v-if="addon(item.name).enabled">
-                    <v-list-tile-avatar>
-                      <v-icon :class="textColorClass">mdi-puzzle</v-icon>
-                    </v-list-tile-avatar>
-                    <v-list-tile-content>
-                      <v-list-tile-title>{{item.title}}</v-list-tile-title>
-                      <v-list-tile-sub-title>{{item.description}}</v-list-tile-sub-title>
-                    </v-list-tile-content>
-                    <v-list-tile-action>
-                      <template v-if="componentUrl(item.name)">
-                        <v-btn icon :href="componentUrl(item.name)" target="_blank">
-                          <v-icon :class="textColorClass">mdi-open-in-new</v-icon>
-                        </v-btn>
-                      </template>
-                    </v-list-tile-action>
-                  </v-list-tile>
-
-                </v-list>
-              </v-card>
-            </v-flex>
-
-            <v-flex md6 v-show="isInfoAvailable">
-              <v-card>
-                <v-card-title :class="colorClass" class="subheading white--text">
-                  Kube-Cluster Access
-                </v-card-title>
-                <cluster-access ref="clusterAccess" :info="info" :textColorClass="textColorClass"></cluster-access>
-                <template v-if="!!info.kubeconfig">
-                  <v-divider class="my-2" inset></v-divider>
-                  <v-expansion-panel>
-                    <v-expansion-panel-content>
-                      <div slot="header" class="kubeconfig-title">
-                        <v-icon :class="textColorClass">insert_drive_file</v-icon>
-                        <span>KUBECONFIG</span>
-                      </div>
-                      <v-card>
-                        <code-block lang="yaml" :content="info.kubeconfig"></code-block>
-                      </v-card>
-                    </v-expansion-panel-content>
-                  </v-expansion-panel>
                 </template>
-              </v-card>
 
-              <journals v-if="isAdmin" :journals="journals" :shoot="item"></journals>
+                <v-divider class="my-2" inset></v-divider>
+                <v-list-tile>
+                  <v-list-tile-action>
+                    <v-icon :class="textColorClass">settings_ethernet</v-icon>
+                  </v-list-tile-action>
+                  <v-list-tile-content>
+                    <v-list-tile-sub-title>CIDR</v-list-tile-sub-title>
+                    <v-list-tile-title>{{cidr}}</v-list-tile-title>
+                  </v-list-tile-content>
+                </v-list-tile>
 
-            </v-flex>
-          </v-layout>
-        </v-container>
-      </v-tab-item>
-      <v-tab-item id="yaml">
-        <v-card>
-          <code-block height="100%" lang="yaml" :content="rawItem"></code-block>
-        </v-card>
-      </v-tab-item>
-    </v-tabs>
-  </div>
+              </v-list>
+            </v-card>
+
+            <v-card :class="colorClass" class="mt-3">
+              <v-card-title class="subheading white--text" >
+                Addons provided by Gardener
+              </v-card-title>
+              <v-list>
+
+                <v-list-tile avatar v-for="item in addonList" :key="item.name" v-if="addon(item.name).enabled">
+                  <v-list-tile-avatar>
+                    <v-icon :class="textColorClass">mdi-puzzle</v-icon>
+                  </v-list-tile-avatar>
+                  <v-list-tile-content>
+                    <v-list-tile-title>{{item.title}}</v-list-tile-title>
+                    <v-list-tile-sub-title>{{item.description}}</v-list-tile-sub-title>
+                  </v-list-tile-content>
+                  <v-list-tile-action>
+                    <template v-if="componentUrl(item.name)">
+                      <v-btn icon :href="componentUrl(item.name)" target="_blank">
+                        <v-icon :class="textColorClass">mdi-open-in-new</v-icon>
+                      </v-btn>
+                    </template>
+                  </v-list-tile-action>
+                </v-list-tile>
+
+              </v-list>
+            </v-card>
+
+          </v-flex>
+
+          <v-flex md6 v-show="isInfoAvailable">
+            <v-card>
+              <v-card-title :class="colorClass" class="subheading white--text">
+                Kube-Cluster Access
+              </v-card-title>
+              <cluster-access ref="clusterAccess" :textColorClass="textColorClass" :info="info"></cluster-access>
+              <template v-if="!!info.kubeconfig">
+                <v-divider class="my-2" inset></v-divider>
+                <v-expansion-panel>
+                  <v-expansion-panel-content>
+                    <div slot="header" class="kubeconfig-title">
+                      <v-icon :class="textColorClass">insert_drive_file</v-icon>
+                      <span>KUBECONFIG</span>
+                    </div>
+                    <v-card>
+                      <code-block lang="yaml" :content="info.kubeconfig"></code-block>
+                    </v-card>
+                  </v-expansion-panel-content>
+                </v-expansion-panel>
+              </template>
+            </v-card>
+
+            <journals v-if="isAdmin" :journals="journals" :shoot="item"></journals>
+
+          </v-flex>
+
+        </v-layout>
+
+      </v-container>
+    </v-tab-item>
+
+    <v-tab-item id="yaml">
+      <v-card>
+        <code-block height="100%" lang="yaml" :content="rawItem"></code-block>
+        <v-btn
+          :color="colorClass"
+          dark
+          fixed
+          fab
+          bottom
+          right
+          @click.native.stop="openEditor"
+        >
+          <v-icon>edit</v-icon>
+        </v-btn>
+      </v-card>
+    </v-tab-item>
+
+    <shoot-editor ref="editor" :content="rawItem"></shoot-editor>
+
+  </v-tabs>
+</div>
 </template>
 
 
@@ -228,22 +258,27 @@ limitations under the License.
   import { mapGetters, mapActions, mapState } from 'vuex'
   import CodeBlock from '@/components/CodeBlock'
   import ClusterAccess from '@/components/ClusterAccess'
+  import ShootEditor from '@/components/ShootEditor'
   import Journals from '@/components/Journals'
   import TimeAgo from '@/components/TimeAgo'
+  import ShootVersion from '@/components/ShootVersion'
   import get from 'lodash/get'
+  import omit from 'lodash/omit'
   import includes from 'lodash/includes'
   import { safeDump } from 'js-yaml'
-  import { getDateFormatted, getCloudProviderKind, canLinkToSeed } from '@/utils'
   import ClusterDeletedDialog from '@/dialogs/ClusterDeletedDialog'
+  import { getDateFormatted, getCloudProviderKind, canLinkToSeed, availableK8sUpdatesForShoot } from '@/utils'
 
   export default {
     name: 'shoot-list',
     components: {
       CodeBlock,
       ClusterAccess,
+      ShootEditor,
       Journals,
       TimeAgo,
-      ClusterDeletedDialog
+      ClusterDeletedDialog,
+      ShootVersion
     },
     data () {
       return {
@@ -279,7 +314,8 @@ limitations under the License.
             description: 'An Ingress is a Kubernetes resource that lets you configure an HTTP load balancer for your Kubernetes services. Such a load balancer usually exposes your services to clients outside of your Kubernetes cluster.'
           }
         ],
-        mounted: false
+        mounted: false,
+        editor: false
       }
     },
     methods: {
@@ -290,6 +326,12 @@ limitations under the License.
       onConfirmDeletedShoot () {
         this.removeShootFromStore(this.item)
         this.$router.push({name: 'ShootList', params: {namespace: this.storeNamespace}})
+      },
+      openEditor () {
+        const editor = this.$refs.editor
+        if (editor) {
+          editor.open()
+        }
       }
     },
     computed: {
@@ -333,17 +375,7 @@ limitations under the License.
         return url
       },
       rawItem () {
-        const item = Object.assign({}, this.item)
-        // delete in item copy
-        delete item.info
-        const metadata = item.metadata || {}
-        if (metadata.annotations && metadata.annotations['seed.garden.sapcloud.io/kubeconfig']) {
-          // delete in item orginal
-          delete metadata.annotations['seed.garden.sapcloud.io/kubeconfig']
-        }
-        if (item.dashboardData) {
-          delete item.dashboardData
-        }
+        const item = omit(this.item, ['info', 'dashboardData'])
         return safeDump(item, {
           skipInvalid: true
         })
@@ -400,7 +432,7 @@ limitations under the License.
         return get(this.item, `spec.cloud.${this.getCloudProviderKind}.networks.nodes`)
       },
       seed () {
-        return get(this.item, `spec.cloud.seed`)
+        return get(this.item, 'spec.cloud.seed')
       },
       purpose () {
         return this.annotations['garden.sapcloud.io/purpose']
@@ -428,13 +460,19 @@ limitations under the License.
         return get(this.item, 'dashboardData.stale', false)
       },
       isDeletedShoot () {
-        return !get(this.item, 'dashboardData.notFound', false)
+        return get(this.item, 'dashboardData.notFound', false)
       },
       colorClass () {
         return this.isStaleShoot ? 'grey' : 'cyan darken-2'
       },
       textColorClass () {
         return this.isStaleShoot ? 'grey--text' : 'cyan--text text--darken-2'
+      },
+      availableK8sUpdates () {
+        return availableK8sUpdatesForShoot(get(this.item, 'spec'))
+      },
+      k8sVersion () {
+        return get(this.item, 'spec.kubernetes.version')
       }
     },
     mounted () {

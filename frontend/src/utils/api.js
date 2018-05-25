@@ -50,6 +50,11 @@ function updateResource (url, user, data) {
     .then((headers) => axios.put(url, data, {headers}))
 }
 
+function patchResource (url, user, data) {
+  return getAuthorization(user)
+    .then((headers) => axios.patch(url, data, {headers}))
+}
+
 /* Infrastructures Secrets */
 
 export function getInfrastructureSecrets ({namespace, user}) {
@@ -78,12 +83,24 @@ export function deleteShoot ({namespace, name, user}) {
   return deleteResource(`/api/namespaces/${namespace}/shoots/${name}`, user)
 }
 
+export function replaceShootSpec ({namespace, name, user, data}) {
+  return updateResource(`/api/namespaces/${namespace}/shoots/${name}/spec`, user, data)
+}
+
+export function addAnnotation ({namespace, name, user, data}) {
+  return patchResource(`/api/namespaces/${namespace}/shoots/${name}/metadata/annotations`, user, data)
+}
+
 export function getShoot ({namespace, name, user}) {
   return getResource(`/api/namespaces/${namespace}/shoots/${name}`, user)
 }
 
 export function getShootInfo ({namespace, name, user}) {
   return getResource(`/api/namespaces/${namespace}/shoots/${name}/info`, user)
+}
+
+export function updateShootVersion ({namespace, name, user, data}) {
+  return updateResource(`/api/namespaces/${namespace}/shoots/${name}/spec/kubernetes/version`, user, data)
 }
 
 /* Cloud Profiles */
