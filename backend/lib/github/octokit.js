@@ -18,6 +18,7 @@
 
 const assert = require('assert')
 const { Readable, Transform } = require('stream')
+const { Agent } = require('https')
 const _ = require('lodash')
 const octokitRest = require('@octokit/rest')
 const config = require('../config')
@@ -44,9 +45,11 @@ function getAuthenticationOptions () {
       secret
     }
   }
-  return {
-    type: 'token',
-    token
+  if (token) {
+    return {
+      type: 'token',
+      token
+    }
   }
 }
 
@@ -187,12 +190,20 @@ class PageStream extends Readable {
 function init (options) {
   const {
     apiUrl: baseUrl = 'https://api.github.com',
+    ca,
     timeout = 30000
   } = _.get(config, 'gitHub', {})
-
+  let agent = false
+  if (ca) {
+    agent = new Agent({
+      ca,
+      keepAlive: true
+    })
+  }
   options = _.merge({}, {
     baseUrl,
     timeout,
+    agent,
     headers: {
       accept: 'application/vnd.github.v3+json, application/vnd.github.symmetra-preview+json'
     }
@@ -204,7 +215,10 @@ function init (options) {
 
   const octokit = octokitRest(options)
   octokit.createPageStream = createPageStream
-  octokit.authenticate(getAuthenticationOptions())
+  const auth = getAuthenticationOptions()
+  if (_.isPlainObject(auth)) {
+    octokit.authenticate(auth)
+  }
   return octokit
 }
 

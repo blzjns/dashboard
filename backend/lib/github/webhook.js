@@ -17,13 +17,22 @@
 'use strict'
 
 const _ = require('lodash')
+const morgan = require('morgan')
+const express = require('express')
+const bodyParser = require('body-parser')
 const { createHmac, timingSafeEqual } = require('crypto')
-const config = require('../../config')
-const logger = require('../../logger')
-const { InternalServerError, Forbidden } = require('../../errors')
-const { fromIssue, fromComment, loadIssueComments } = require('../../services/journals')
-const { getJournalCache } = require('../../cache')
+const config = require('../config')
+const logger = require('../logger')
+const { InternalServerError, Forbidden } = require('../errors')
+const { fromIssue, fromComment, loadIssueComments } = require('../services/journals')
+const { getJournalCache } = require('../cache')
 
+// router
+const router = exports.router = express.Router()
+router.use(morgan('common', logger))
+router.post('/', bodyParser.json({verify: verifyHubSignature}), handleGithubEvent)
+
+// security
 const hubSignatureAlgorithm = Buffer.from('73686131', 'hex').toString('ascii')
 
 function verifyHubSignature (req, res, body) {
@@ -42,6 +51,23 @@ function verifyHubSignature (req, res, body) {
 }
 exports.verifyHubSignature = verifyHubSignature
 
+function digestsEqual (a, b) {
+  if (!Buffer.isBuffer(a)) {
+    a = Buffer.from(a, 'ascii')
+  }
+  if (!Buffer.isBuffer(b)) {
+    b = Buffer.from(b, 'ascii')
+  }
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+exports.digestsEqual = digestsEqual
+
+function createHubSignature (secret, value) {
+  return `${hubSignatureAlgorithm}=${createHmac('sha1', secret).update(value).digest('hex')}`
+}
+exports.createHubSignature = createHubSignature
+
+// handler
 function handleGithubEvent (req, res, next) {
   try {
     const event = req.headers['x-github-event']
@@ -68,33 +94,32 @@ function handleIssue ({action, issue}) {
   issue = fromIssue(issue)
 
   if (action === 'closed') {
-    cache.removeIssue({issue})
-    return
+    return cache.removeIssue({issue})
   }
   cache.addOrUpdateIssue({issue})
 
   if (action === 'reopened') {
-    process.nextTick(() => updateCommentsForIssue({issue}))
+    const {
+      data: {
+        comments: numberOfComments = 0
+      } = {},
+      metadata: {
+        number
+      } = {}
+    } = issue
+    if (!numberOfComments) {
+      return
+    }
+    process.nextTick(async () => {
+      try {
+        await loadIssueComments({number})
+      } catch (err) {
+        logger.error('failed to fetch comments for reopened issue %s: %s', number, err)
+      }
+    })
   }
 }
 exports.handleIssue = handleIssue
-
-function updateCommentsForIssue ({issue}) {
-  const {
-    data: {
-      comments: numberOfComments = 0
-    } = {},
-    metadata: {
-      number
-    } = {}
-  } = issue
-  if (numberOfComments > 0) {
-    return loadIssueComments({number})
-      .catch(err => {
-        logger.error('failed to fetch comments for reopened issue %s: %s', number, err)
-      })
-  }
-}
 
 function handleComment ({action, issue, comment}) {
   const cache = getJournalCache()
@@ -106,25 +131,8 @@ function handleComment ({action, issue, comment}) {
   cache.addOrUpdateIssue({issue})
 
   if (action === 'deleted') {
-    cache.removeComment({issueNumber, comment})
-    return
+    return cache.removeComment({issueNumber, comment})
   }
   cache.addOrUpdateComment({issueNumber, comment})
 }
 exports.handleComment = handleComment
-
-function digestsEqual (a, b) {
-  if (!Buffer.isBuffer(a)) {
-    a = Buffer.from(a, 'ascii')
-  }
-  if (!Buffer.isBuffer(b)) {
-    b = Buffer.from(b, 'ascii')
-  }
-  return a.length === b.length && timingSafeEqual(a, b)
-}
-exports.digestsEqual = digestsEqual
-
-function createHubSignature (secret, value) {
-  return `${hubSignatureAlgorithm}=${createHmac('sha1', secret).update(value).digest('hex')}`
-}
-exports.createHubSignature = createHubSignature
