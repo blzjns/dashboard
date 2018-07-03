@@ -18,128 +18,133 @@ const EventEmitter = require('events')
 const _ = require('lodash')
 const logger = require('../logger')
 
-const issues = {}
-const commentsForIssues = {} // we could also think of getting rid of the comments cache
-const emitter = new EventEmitter()
+function init () {
+  const issues = {}
+  const commentsForIssues = {} // we could also think of getting rid of the comments cache
+  const emitter = new EventEmitter()
 
-function onIssue (fn) {
-  logger.debug('listening on issues cache changes')
-  emitter.on('issue', fn)
-}
-
-function onComment (fn) {
-  logger.debug('listening on comments cache changes')
-  emitter.on('comment', fn)
-}
-
-function emit (kind, type, object) {
-  emitter.emit(kind, {kind, type, object})
-}
-
-function emitAdded (kind, object) {
-  emit(kind, 'ADDED', object)
-}
-
-function emitModified (kind, object) {
-  emit(kind, 'MODIFIED', object)
-}
-
-function emitIssueDeleted (object) {
-  emit('issue', 'DELETED', object)
-}
-
-function emitCommmentDeleted (object) {
-  emit('comment', 'DELETED', object)
-}
-
-function getIssues () {
-  return _.values(issues)
-}
-
-function getIssueNumbersForNameAndNamespace ({name, namespace}) {
-  return _
-    .chain(getIssues())
-    .filter(_.matches({metadata: {name, namespace}}))
-    .map(issue => issue.metadata.number)
-    .value()
-}
-
-function getCommentsForIssue ({issueNumber}) {
-  return commentsForIssues[issueNumber]
-}
-
-function getCommentsForIssueCache ({issueNumber}) {
-  if (!commentsForIssues[issueNumber]) {
-    commentsForIssues[issueNumber] = {}
+  function onIssue (fn) {
+    logger.debug('listening on issues cache changes')
+    emitter.on('issue', fn)
   }
-  return commentsForIssues[issueNumber]
-}
 
-function addOrUpdateIssues ({issues}) {
-  _.forEach(issues, issue => addOrUpdateIssue({issue}))
-}
+  function onComment (fn) {
+    logger.debug('listening on comments cache changes')
+    emitter.on('comment', fn)
+  }
 
-function addOrUpdateIssue ({issue}) {
-  updateIfNewer('issue', issues, issue, 'number')
-}
+  function emit (kind, type, object) {
+    emitter.emit(kind, {kind, type, object})
+  }
 
-function addOrUpdateComment ({issueNumber, comment}) {
-  const comments = getCommentsForIssueCache(issueNumber)
-  updateIfNewer('comment', comments, comment, 'id')
-}
+  function emitAdded (kind, object) {
+    emit(kind, 'ADDED', object)
+  }
 
-function removeIssue ({issue}) {
-  const issueNumber = issue.metadata.number
-  logger.debug('removing issue', issueNumber, 'and comments')
+  function emitModified (kind, object) {
+    emit(kind, 'MODIFIED', object)
+  }
 
-  const comments = getCommentsForIssue({issueNumber})
+  function emitIssueDeleted (object) {
+    emit('issue', 'DELETED', object)
+  }
 
-  _.unset(issues, issueNumber)
-  _.unset(commentsForIssues, issueNumber)
+  function emitCommmentDeleted (object) {
+    emit('comment', 'DELETED', object)
+  }
 
-  emitIssueDeleted(issue)
-  _.forEach(comments, emitCommmentDeleted)
-}
+  function getIssues () {
+    return _.values(issues)
+  }
 
-function removeComment ({issueNumber, comment}) {
-  const identifier = comment.metadata.id
-  logger.debug('removing comment', identifier, 'of issue', issueNumber)
-  const commentsForIssuesCache = getCommentsForIssueCache(issueNumber)
-  _.unset(commentsForIssuesCache, identifier)
-  emitCommmentDeleted(comment)
-}
+  function getIssueNumbersForNameAndNamespace ({name, namespace}) {
+    return _
+      .chain(getIssues())
+      .filter(_.matches({metadata: {name, namespace}}))
+      .map(issue => issue.metadata.number)
+      .value()
+  }
 
-function updateIfNewer (kind, cachedList, item, itemIdentifier) {
-  const identifier = item.metadata[itemIdentifier]
-  const cachedItem = cachedList[identifier]
-  if (cachedItem) {
-    if (isCachedItemOlder(cachedItem, item)) {
-      logger.debug('updating', kind, identifier)
-      cachedList[identifier] = item
-      emitModified(kind, item)
-    } else {
-      logger.warn(`skipped updating ${kind} with id ${identifier} as it was older`)
+  function getCommentsForIssue ({issueNumber}) {
+    return commentsForIssues[issueNumber]
+  }
+
+  function getCommentsForIssueCache ({issueNumber}) {
+    if (!commentsForIssues[issueNumber]) {
+      commentsForIssues[issueNumber] = {}
     }
-  } else {
-    logger.debug('adding new', kind, identifier)
-    cachedList[identifier] = item
-    emitAdded(kind, item)
+    return commentsForIssues[issueNumber]
   }
-  return item
+
+  function addOrUpdateIssues ({issues}) {
+    _.forEach(issues, issue => addOrUpdateIssue({issue}))
+  }
+
+  function addOrUpdateIssue ({issue}) {
+    updateIfNewer('issue', issues, issue, 'number')
+  }
+
+  function addOrUpdateComment ({issueNumber, comment}) {
+    const comments = getCommentsForIssueCache(issueNumber)
+    updateIfNewer('comment', comments, comment, 'id')
+  }
+
+  function removeIssue ({issue}) {
+    const issueNumber = issue.metadata.number
+    logger.debug('removing issue', issueNumber, 'and comments')
+
+    const comments = getCommentsForIssue({issueNumber})
+
+    _.unset(issues, issueNumber)
+    _.unset(commentsForIssues, issueNumber)
+
+    emitIssueDeleted(issue)
+    _.forEach(comments, emitCommmentDeleted)
+  }
+
+  function removeComment ({issueNumber, comment}) {
+    const identifier = comment.metadata.id
+    logger.debug('removing comment', identifier, 'of issue', issueNumber)
+    const commentsForIssuesCache = getCommentsForIssueCache(issueNumber)
+    _.unset(commentsForIssuesCache, identifier)
+    emitCommmentDeleted(comment)
+  }
+
+  function updateIfNewer (kind, cachedList, item, itemIdentifier) {
+    const identifier = item.metadata[itemIdentifier]
+    const cachedItem = cachedList[identifier]
+    if (cachedItem) {
+      if (isCachedItemOlder(cachedItem, item)) {
+        logger.debug('updating', kind, identifier)
+        cachedList[identifier] = item
+        emitModified(kind, item)
+      } else {
+        logger.warn(`skipped updating ${kind} with id ${identifier} as it was older`)
+      }
+    } else {
+      logger.debug('adding new', kind, identifier)
+      cachedList[identifier] = item
+      emitAdded(kind, item)
+    }
+    return item
+  }
+
+  function isCachedItemOlder (cachedItem, item) {
+    return new Date(item.metadata.updated_at) >= new Date(cachedItem.metadata.updated_at)
+  }
+
+  return {
+    emitter,
+    onIssue,
+    onComment,
+    getIssues,
+    getIssueNumbersForNameAndNamespace,
+    addOrUpdateIssues,
+    addOrUpdateIssue,
+    addOrUpdateComment,
+    removeIssue,
+    removeComment
+  }
 }
 
-function isCachedItemOlder (cachedItem, item) {
-  return new Date(item.metadata.updated_at) >= new Date(cachedItem.metadata.updated_at)
-}
-
-module.exports = {
-  onIssue,
-  onComment,
-  getIssues,
-  getIssueNumbersForNameAndNamespace,
-  addOrUpdateIssues,
-  addOrUpdateIssue,
-  addOrUpdateComment,
-  removeIssue,
-  removeComment
-}
+module.exports = init

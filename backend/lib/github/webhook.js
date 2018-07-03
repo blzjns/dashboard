@@ -33,7 +33,7 @@ router.use(morgan('common', logger))
 router.post('/', bodyParser.json({verify: verifyHubSignature}), handleGithubEvent)
 
 // security
-const hubSignatureAlgorithm = Buffer.from('73686131', 'hex').toString('ascii')
+const defaultSignatureAlgorithm = Buffer.from('73686131', 'hex').toString('ascii')
 
 function verifyHubSignature (req, res, body) {
   const webhookSecret = _.get(config, 'gitHub.webhookSecret')
@@ -44,7 +44,8 @@ function verifyHubSignature (req, res, body) {
   if (!requestSignature) {
     throw new Forbidden('Header \'x-hub-signature\' not provided')
   }
-  const signature = createHubSignature(webhookSecret, body)
+  const algorithm = _.chain(requestSignature).split('=', 1).first().value()
+  const signature = createHubSignature(webhookSecret, body, algorithm)
   if (!digestsEqual(requestSignature, signature)) {
     throw new Forbidden('Signatures didn\'t match!')
   }
@@ -62,8 +63,8 @@ function digestsEqual (a, b) {
 }
 exports.digestsEqual = digestsEqual
 
-function createHubSignature (secret, value) {
-  return `${hubSignatureAlgorithm}=${createHmac('sha1', secret).update(value).digest('hex')}`
+function createHubSignature (secret, value, algorithm = defaultSignatureAlgorithm) {
+  return `${algorithm}=${createHmac(algorithm, secret).update(value).digest('hex')}`
 }
 exports.createHubSignature = createHubSignature
 

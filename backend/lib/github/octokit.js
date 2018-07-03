@@ -66,14 +66,14 @@ function reduce (stream, reducer = (data, chunk) => _.concat(data, chunk), data 
   })
 }
 
-function thru (stream, transformer = chunk => chunk) {
-  const transform = new Transform({
+function thru (stream, interceptor = _.identity) {
+  const transformer = new Transform({
     readableObjectMode: true,
     writableObjectMode: true,
     transform (chunk, encoding, done) {
       try {
-        if (_.isFunction(transformer)) {
-          chunk = transformer(chunk)
+        if (_.isFunction(interceptor)) {
+          chunk = interceptor(chunk)
         }
         if (Array.isArray(chunk) && chunk.length) {
           this.push(chunk)
@@ -84,10 +84,11 @@ function thru (stream, transformer = chunk => chunk) {
       }
     }
   })
-  transform.reduce = _.partial(reduce, transform)
+  transformer.reduce = _.partial(reduce, transformer)
+  transformer.thru = _.partial(thru, transformer)
   return stream
-    .on('error', err => transform.emit('error', err))
-    .pipe(transform)
+    .once('error', err => transformer.emit('error', err))
+    .pipe(transformer)
 }
 
 class PageStream extends Readable {
