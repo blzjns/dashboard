@@ -18,32 +18,15 @@
 
 const morgan = require('morgan')
 const express = require('express')
-const cors = require('cors')
 const bodyParser = require('body-parser')
 const logger = require('../../logger')
-const { verifySignature } = require('./middleware')
-const { notFound, sendError } = require('../../middleware')
+const {
+  verifyHubSignature: verify,
+  handleGithubEvent
+} = require('./handler')
 
 // configure router
-const router = express.Router()
+const router = exports.router = express.Router()
 
 router.use(morgan('common', logger))
-router.use(bodyParser.urlencoded({
-  extended: false
-}))
-/* have to use text (or raw) body parser for verifying the signatures
-* as the signature verification would fail when using the json body parser
-* if the body contains unicode sequences like \u001B it would change it
-* to \u001b
-*/
-router.use(bodyParser.text({type: 'application/json'}))
-router.use(cors())
-router.use(verifySignature)
-router.use('/', require('./route'))
-router.use(notFound)
-router.use(sendError)
-
-// exports
-module.exports = {
-  router
-}
+router.post('/', bodyParser.json({verify}), handleGithubEvent)
