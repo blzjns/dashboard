@@ -17,6 +17,7 @@
 'use strict'
 const _ = require('lodash')
 const {_cache: cache} = require('../../lib/cache')
+const journals = require('../../lib/cache/journals')
 const { _config: config } = require('../../lib/utils')
 
 function getSeed (name, profileName, region, kind, seedProtected = false, seedVisible = true) {
@@ -129,6 +130,12 @@ const stub = {
   getDomains (sandbox) {
     const getDomainsStub = sandbox.stub(cache, 'getDomains')
     getDomainsStub.returns(domainList)
+  },
+  getJournalCache (sandbox) {
+    const getJournalCacheStub = sandbox.stub(cache, 'getJournalCache')
+    const journalCache = journals()
+    getJournalCacheStub.returns(journalCache)
+    return journalCache
   }
 }
 
