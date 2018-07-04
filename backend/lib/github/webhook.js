@@ -59,7 +59,7 @@ function digestsEqual (a, b) {
   if (!Buffer.isBuffer(b)) {
     b = Buffer.from(b, 'ascii')
   }
-  return a.length === b.length && timingSafeEqual(a, b)
+  return timingSafeEqual(a, b)
 }
 exports.digestsEqual = digestsEqual
 

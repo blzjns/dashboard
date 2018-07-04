@@ -20,8 +20,8 @@ const octokit = require('./octokit')()
 
 const config = require('../config')
 const {
-  org: owner = 'kubernetes-dev',
-  repository: repo = 'journal-dev'
+  org: owner,
+  repository: repo
 } = config.gitHub || {}
 
 function searchIssues ({state, title} = {}) {

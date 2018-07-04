@@ -129,11 +129,14 @@ function setupShootsNamespace (shootsNsp) {
 
       const projectList = await projects.list({user})
 
-      _.forEach(namespaces, async ({namespace, filter}) => {
-        const shootsWithIssuesOnly = !!filter
-        const predicate = item => item.metadata.namespace === namespace
-        const project = _.find(projectList, predicate)
-        if (project) {
+      await _
+        .chain(namespaces)
+        .filter(({namespace}) => {
+          const predicate = item => item.metadata.namespace === namespace
+          return !!_.find(projectList, predicate)
+        })
+        .map(async ({namespace, filter}) => {
+          const shootsWithIssuesOnly = !!filter
           const room = filter ? `shoots_${namespace}_${filter}` : `shoots_${namespace}`
           joinRoom(socket, room)
           try {
@@ -148,8 +151,9 @@ function setupShootsNamespace (shootsNsp) {
               message: `Failed to fetch shoots for namespace ${namespace}`
             })
           }
-        }
-      })
+        })
+        .thru(promises => Promise.all(promises))
+        .value()
 
       batchEmitter.flush()
       socket.emit('batchNamespacedEventsDone', {
@@ -176,7 +180,7 @@ function setupShootsNamespace (shootsNsp) {
           batchEmitter.batchEmitObjects([shoot], namespace)
         }
       } catch (error) {
-        logger.error('Socket %s: failed to subscribe to shoot: (%s) %s', socket.id, error.code, error)
+        logger.error('Socket %s: failed to subscribe to shoot: (%s)', socket.id, error.code, error)
         socket.emit('subscription_error', {
           kind,
           code: error.code,
@@ -232,7 +236,7 @@ function setupJournalsNamespace (journalsNsp) {
 
           const batchEmitter = new EventsEmitter({kind, socket})
           const numbers = cache.getIssueNumbersForNameAndNamespace({name, namespace})
-          _.forEach(numbers, async number => {
+          for (const number of numbers) {
             try {
               await getIssueComments({number})
                 .reduce((accumulator, comments) => batchEmitter.batchEmitObjects(comments))
@@ -240,7 +244,7 @@ function setupJournalsNamespace (journalsNsp) {
               logger.error('Socket %s: failed to fetch comments for %s/%s issue %s: %s', socket.id, namespace, name, number, err)
               socket.emit('subscription_error', {kind, code: 500, message: `Failed to fetch comments for issue ${number}`})
             }
-          })
+          }
           batchEmitter.flush()
         } else {
           logger.warn('Socket %s: user %s tried to fetch journal comments but is no admin', socket.id, user.email)
