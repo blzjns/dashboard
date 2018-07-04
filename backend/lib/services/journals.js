@@ -132,7 +132,7 @@ exports.deleteJournals = deleteJournals
 
 function getIssueComments ({number}) {
   const cache = getJournalCache()
-  const {name, namespace} = cache.issues[number]
+  const {metadata: {name, namespace}} = cache.getIssue(number)
   return github
     .getComments({number})
     .thru(githubComments => _.map(githubComments, comment => fromComment(number, name, namespace, comment)))

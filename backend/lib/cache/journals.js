@@ -57,6 +57,10 @@ function init () {
     return _.values(issues)
   }
 
+  function getIssue (number) {
+    return issues[number]
+  }
+
   function getIssueNumbersForNameAndNamespace ({name, namespace}) {
     return _
       .chain(getIssues())
@@ -137,6 +141,7 @@ function init () {
     emitter,
     onIssue,
     onComment,
+    getIssue,
     getIssues,
     getIssueNumbersForNameAndNamespace,
     addOrUpdateIssues,
