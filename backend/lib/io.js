@@ -233,8 +233,13 @@ function setupJournalsNamespace (journalsNsp) {
           const batchEmitter = new EventsEmitter({kind, socket})
           const numbers = cache.getIssueNumbersForNameAndNamespace({name, namespace})
           _.forEach(numbers, async number => {
-            await getIssueComments({number})
-              .reduce((accumulator, comments) => batchEmitter.batchEmitObjects(comments))
+            try {
+              await getIssueComments({number})
+                .reduce((accumulator, comments) => batchEmitter.batchEmitObjects(comments))
+            } catch (err) {
+              logger.error('Socket %s: failed to fetch comments for %s/%s issue %s: %s', socket.id, namespace, name, number, err)
+              socket.emit('subscription_error', {kind, code: 500, message: `Failed to fetch comments for issue ${number}`})
+            }
           })
           batchEmitter.flush()
         } else {
